@@ -1,0 +1,4 @@
+*.parquet
+*.png
+*.pdf
+CMSSW_12_4_8/
