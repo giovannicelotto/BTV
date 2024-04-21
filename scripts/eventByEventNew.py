@@ -43,7 +43,7 @@ def eventDisplay(df_event, SVs, SV_chi2, PV_x, PV_y, GenPart_genPartIdxMother, G
             ax.text(x=1.20, y=y, s="%.1f"%(SV_chi2[row]), ha='center', fontsize=14, transform=ax.transAxes)
             y=y-0.05
 
-        ax.scatter(SVs[:,0], SVs[:,1], label='Reco SV', marker='^', color='green')
+        ax.scatter(SVs[:,0], SVs[:,1], label='Reco SV', marker="s", color='C1')
     else:
         pass
         assert len(SVs)==0
@@ -289,19 +289,6 @@ def main(nEvents, criterion, threshold):
         if len(df_event)!=0:
             df = pd.concat((df, df_event))
 
-        
-    import math
-    floatPart, intPart = math.modf(params['threshold'])[0], int(math.modf(params['threshold'])[1])
-    floatPart = int(floatPart*10)
-    if floatPart == 0:
-        suffix = "cr%d_t%d"%(criterion, intPart)
-    else:
-        suffix = "cr%d_t%dp%d"%(criterion, intPart, floatPart)
-    outName = "/t3home/gcelotto/BTV/output/df_"+suffix+".parquet"
-    df.to_parquet(outName)
-
-
-    print((df.matched==True).sum()/genVtxCouter) 
     return 
 
 if __name__ =="__main__":
