@@ -89,6 +89,7 @@ def criterion0(distances, distances_normalized, df_event, display, SVs, SV_chi2,
         distances_normalized[minIdx[0], :] = [998]*distances.shape[1]
         distances_normalized[:, minIdx[1]] = [998]*distances.shape[0]
     if display:
+        hep.cms.label()
         fig.savefig("/t3home/gcelotto/BTV/plots/EventGenReco.png", bbox_inches='tight')
         plt.close('all')
     return df_event
@@ -282,10 +283,6 @@ def main(nEvents, criterion, threshold):
                                   SVs=SVs, SV_chi2=SV_chi2, PV_x=PV_x, PV_y=PV_y, GenPart_genPartIdxMother=GenPart_genPartIdxMother, GenPart_vx=GenPart_vx,
                                   GenPart_vy=GenPart_vy, col_mask=col_mask, row_mask=row_mask)
 
-        
-        
-        
-        #print(df_event.distance)
         if len(df_event)!=0:
             df = pd.concat((df, df_event))
 
