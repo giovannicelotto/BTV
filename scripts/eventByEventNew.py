@@ -61,7 +61,7 @@ def eventDisplay(df_event, SVs, SV_chi2, PV_x, PV_y, GenPart_genPartIdxMother, G
     ax.legend()
     return fig, ax
 
-def criterion0(distances, distances_normalized, df_event, display, SVs, SV_chi2, PV_x, PV_y, GenPart_genPartIdxMother, GenPart_vx, GenPart_vy, col_mask, row_mask):
+def criterion0(distances, distances_normalized, df_event, display, SVs, SV_chi2, PV_x, PV_y, GenPart_genPartIdxMother, GenPart_vx, GenPart_vy, tracksCounters, col_mask, row_mask):
     if display:
         fig, ax = eventDisplay(df_event=df_event, SVs=SVs, SV_chi2=SV_chi2, PV_x=PV_x, PV_y=PV_y, GenPart_genPartIdxMother=GenPart_genPartIdxMother, GenPart_vx=GenPart_vx, GenPart_vy=GenPart_vy)
     while (np.any(distances < 997)):
@@ -76,11 +76,12 @@ def criterion0(distances, distances_normalized, df_event, display, SVs, SV_chi2,
         df_event.loc[minIdx[1], 'matched']=True
         df_event.loc[minIdx[1], 'distance']=distances[minIdx[0], minIdx[1]]
         df_event.loc[minIdx[1], 'normDistance']=distances_normalized[minIdx[0], minIdx[1]]
-        x_values = [SVs[row_mask][minIdx[0]][0], np.array(df_event.vx)[col_mask][minIdx[1]]]
-        y_values = [SVs[row_mask][minIdx[0]][1], np.array(df_event.vy)[col_mask][minIdx[1]]]
-
-        #plot matching
-        ax.plot(x_values, y_values, color='black', marker='none')
+        df_event.loc[minIdx[1], 'probeTracksFromSV']=tracksCounters[minIdx[0]]
+        if display:
+            x_values = [SVs[row_mask][minIdx[0]][0], np.array(df_event.vx)[col_mask][minIdx[1]]]
+            y_values = [SVs[row_mask][minIdx[0]][1], np.array(df_event.vy)[col_mask][minIdx[1]]]
+            #plot matching
+            ax.plot(x_values, y_values, color='black', marker='none')
 
         # instead of deleting matched vertices, replace them with high values
         distances[minIdx[0], :]=[998]*distances.shape[1]
