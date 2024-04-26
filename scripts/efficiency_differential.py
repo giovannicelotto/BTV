@@ -156,8 +156,27 @@ def main(criterion, threshold):
         if not os.path.exists(folder):
             os.makedirs(folder)
         
+     
+    fig,ax = plt.subplots(1, 1)
+    bins = np.linspace(-5.5, 5.5, 12)
+    c = np.histogram(df[df.matched==True].genDaughters - df[df.matched==True].probeTracksFromSV, bins=bins)[0]
+    ax.hist(bins[:-1], bins=bins, weights=c, histtype=u'step', linewidth=4, color='black', label='Inclusive')[0]
+    close = np.histogram(df[(df.matched==True) & (df.distance<0.01)].genDaughters - df[(df.matched==True) & (df.distance<0.01)].probeTracksFromSV, bins=bins)[0]
+    close = ax.hist(bins[:-1], bins=bins, weights=close, label='0.00 < d < 0.01')[0]
+    medium = np.histogram(df[(df.matched==True) & (df.distance>0.01) & (df.distance<0.1) ].genDaughters - df[(df.matched==True) & (df.distance>0.01) & (df.distance<0.1)].probeTracksFromSV, bins=bins)[0]
+    medium = ax.hist(bins[:-1], bins=bins, weights=medium, bottom=close, label='0.01 < d < 0.10')[0]
+    high = np.histogram(df[(df.matched==True) & (df.distance>0.1) ].genDaughters - df[(df.matched==True) & (df.distance>0.1)].probeTracksFromSV, bins=bins)[0]
+    high = ax.hist(bins[:-1], bins=bins, weights=high, bottom=(close+medium), label='0.10 < d < Inf')[0]
+    ax.set_xlabel("#GenDaughters - #ProbeMatched")
+    ax.set_ylabel("")
+    ax.legend()
     
-    #plotBmesons(df, suffix)
+    #ax.text(x=0.95, y=0.95, s="Matched Entries ", transform=ax.transAxes, horizontalalignment='right')
+    outName = "/t3home/gcelotto/BTV/plots/cr0_t-1/temp.png"
+    hep.cms.label()
+    fig.savefig(outName, bbox_inches='tight')
+    print("Saved %s"%outName)
+
     plot2d(x=df[df.matched == True].displacement, y=df[df.matched == True].distance,
            x_bins=np.linspace(0, 10, 20), y_bins=np.linspace(0, 5, 20),
            xlabel="displacement [cm]", ylabel="GenMatch_distance [cm]",
