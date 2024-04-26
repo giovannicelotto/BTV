@@ -8,6 +8,7 @@ from scipy.optimize import linear_sum_assignment
 import mplhep as hep
 hep.style.use("CMS")
 from utilsForScript import distance_3d, getPdgMask
+from eventByEventNew import criterion0, criterion1
 def getSuffix(criterion, threshold):
     import math
     print(threshold, math.modf(threshold))
@@ -42,7 +43,7 @@ def main(nEvents, criterion, threshold):
     print("Threshold for row /column : %.2f"%params['threshold'])
     print("Eta_threshold for mesons : %.2f"%params['eta_threshold'])
     print("Pt_threshold for mesons : %.2f"%params['pt_threshold'])
-    tree, branches = getTreeAndBranches(fileName = "/t3home/gcelotto/BTV/CMSSW_12_4_8/src/PhysicsTools/BParkingNano/test/TTToHadronic_Run2_mc_124X.root")
+    tree, branches = getTreeAndBranches(fileName = "/t3home/gcelotto/BTV/CMSSW_12_4_8/src/PhysicsTools/BParkingNano/test/TTToHadronic_2_Run2_mc_124X.root")
     
     GenPart_pdgId               = branches["GenPart_pdgId"]
     genVtxCouter = 0
@@ -56,7 +57,7 @@ def main(nEvents, criterion, threshold):
     nEvents = tree.num_entries if nEvents is None else nEvents
     suffix = getSuffix(criterion, params['threshold'])
     for ev in np.arange(nEvents):
-        if ev%100==0:
+        if ev%1==0:
             print("Event ", ev, "\r")
         
         nSV                         = branches["nSV"][ev]
@@ -75,6 +76,7 @@ def main(nEvents, criterion, threshold):
         GenPart_vx                  = branches["GenPart_vx"][ev]
         GenPart_vy                  = branches["GenPart_vy"][ev]
         GenPart_vz                  = branches["GenPart_vz"][ev]
+        ProbeTracks_matchedToSV     = branches["ProbeTracks_matchedToSV"][ev]
 
         # filter the gen part of interest
         pdgMask = getPdgMask(GenPart_pdgId=GenPart_pdgId)   # list of pdgId consider as genVertices
@@ -86,11 +88,15 @@ def main(nEvents, criterion, threshold):
             'index':[],     'pdgID':[],     'pt':[],
             'eta':[],       'phi':[],       'vx':[],
             'vy':[],        'vz':[],        'displacement':[],
-            'matched':[],   'distance':[],  'normDistance':[]
+            'genDaughters':[],
+            'matched':[],   'distance':[],  'normDistance':[],
+            'probeTracksFromSV':[]
         })
         
          
         for mes in mesons:            
+            nDaughters = sum(GenPart_genPartIdxMother == mes)
+
             for gp in range(nGenPart):
                 if (GenPart_genPartIdxMother[gp] == mes):
                     
@@ -105,42 +111,38 @@ def main(nEvents, criterion, threshold):
                            distance_3d( #displacement
                                         (GenPart_vx[gp], GenPart_vy[gp], GenPart_vz[gp]),
                                         (GenPart_vx[mes], GenPart_vy[mes], GenPart_vz[mes])),
+                           nDaughters,
                            False,
                            999.,
-                           999.]
+                           999.,
+                           0,# probetracks from SV
+                           ]
                     
                     df_event.loc[len(df_event)]=row
                     
                     break
         genVtxCouter=genVtxCouter+len(df_event.index)
 
-
-
     # Matching
-        SVs     =   []
-        for svIdx in range(nSV):
-            sv = (SV_x[svIdx], SV_y[svIdx], SV_z[svIdx])
-            SVs.append(sv)  
-        SVs = np.array(SVs)
+        SVs = np.array([(x, y, z) for x, y, z in zip(SV_x, SV_y, SV_z)])
+        tracksCounters = np.array([sum(ProbeTracks_matchedToSV == idx) for idx in range(nSV)])
 
         
         # matrix of distances
-        distances = np.zeros((nSV, len(df_event.index)))
-        for i in range(nSV):
-            for j in range(len(df_event.index)):
-                
-                distances[i][j] = distance_3d(SVs[i], (df_event.vx[j], df_event.vy[j], df_event.vz[j]) )
-        
+        #distances = np.zeros((nSV, len(df_event.index)))
+        #for i in range(nSV):
+        #    for j in range(len(df_event.index)):
+        #        distances[i][j] = distance_3d(SVs[i], (df_event.vx[j], df_event.vy[j], df_event.vz[j]) )
+        distances = np.array([[distance_3d(sv, (vx, vy, vz)) for vx, vy, vz in zip(df_event.vx, df_event.vy, df_event.vz)] for sv in SVs ])
+        # distances_normalized = distances / np.linalg.norm(SVs - np.array([[PV_x, PV_y, PV_z]]), axis=1).reshape(-1, 1)
+        print(distances)
         distances_normalized = distances.copy()
-        #print(distances)
+
         for i in range(nSV):
             dist = distance_3d(SVs[i], (PV_x, PV_y, PV_z) )
             distances_normalized[i, :] = distances_normalized[i,:]/dist
         
         # remove row and columns with normalized distances > 1
-        
-        
-
         if params['threshold']==-1:
             params['threshold']=np.inf
         row_mask = np.all(distances_normalized > params['threshold'], axis=1)
@@ -153,59 +155,20 @@ def main(nEvents, criterion, threshold):
         
         if criterion==1:
         # if one reco/gen vertex has all the possible matching > 2.5 exlude that row or column
-            row_ind, col_ind = linear_sum_assignment(distances)
-            for i in range(len(row_ind)):
-                #matchedDistances.append(distances[row_ind[i], col_ind[i]])
-                #normMatchedDistances.append(distances_normalized[row_ind[i], col_ind[i]])
-                df_event.loc[col_ind[i], 'matched']=True
-                df_event.loc[col_ind[i], 'distance']=distances[row_ind[i], col_ind[i]]
-                df_event.loc[col_ind[i], 'normDistance']=distances_normalized[row_ind[i], col_ind[i]]
-                
-        
+            df_event = criterion1(distances=distances, distances_normalized=distances_normalized, df_event=df_event, disaply=False, SVs=SVs,
+                                  PV_x=None, PV_y=None, GenPart_genPartIdxMother=GenPart_genPartIdxMother, GenPart_vx=GenPart_vx,
+                                  GenPart_vy=GenPart_vy, col_mask=col_mask, row_mask=row_mask)
         else:
-            while (np.any(distances < 997)):
-                minIdx = np.unravel_index(np.argmin(distances, axis=None), distances.shape)
-                if criterion ==0:
-                    if distances[minIdx[0], minIdx[1]]*5 - 2*np.array(df_event.displacement[col_mask])[minIdx[1]] > 1:
-                        # dont match the gen part
-                        distances[:, minIdx[1]]=[998]*distances.shape[0]
-                        continue
-
-                df_event.loc[minIdx[1], 'matched']=True
-                df_event.loc[minIdx[1], 'distance']=distances[minIdx[0], minIdx[1]]
-                df_event.loc[minIdx[1], 'normDistance']=distances_normalized[minIdx[0], minIdx[1]]
-                
-                # instead of deleting, replace with high values
-                distances[minIdx[0], :] = [998]*distances.shape[1]
-                distances[:, minIdx[1]] = [998]*distances.shape[0]
-
-                distances_normalized[minIdx[0], :] = [998]*distances.shape[1]
-                distances_normalized[:, minIdx[1]] = [998]*distances.shape[0]
+            df_event = criterion0(distances=distances, distances_normalized=distances_normalized, df_event=df_event, display=False,
+                                  SVs=SVs, SV_chi2=None, PV_x=None, PV_y=None, GenPart_genPartIdxMother=GenPart_genPartIdxMother, GenPart_vx=GenPart_vx,
+                                  GenPart_vy=GenPart_vy, tracksCounters=tracksCounters, col_mask=col_mask, row_mask=row_mask)
             
-        if len(df_event)!=0:
-            df = pd.concat((df, df_event))
+        if not df_event.empty:
+            df = pd.concat([df, df_event], ignore_index=True)
     
     outName = "/t3home/gcelotto/BTV/output/df_"+suffix+".parquet"
     df.to_parquet(outName)
-    
-    #bins= np.linspace(0, 2, 100)
-    #fig, ax = plt.subplots(1, 1, figsize=(15, 5))
-    #y = []
-    #hep.cms.label(ax=ax)
-    #for i in bins:
-    #    y.append((df[df.matched==True].normDistance<i).sum()/(df.matched==True).sum()*100*(df.matched==True).sum()/genVtxCouter)
-    #ax.plot(bins, y)
-    #ax.text(x=0.98, y=0.85, s="Entries : %d"%((df.matched==True).sum()), ha='right', transform=ax.transAxes)
-    #ax.text(x=0.98, y=0.75, s="Eff : %.1f%%"%((df.matched==True).sum()/genVtxCouter*100.), ha='right', transform=ax.transAxes)
-    #ax.set_xlabel("dist(SV,genVertex)/dist(SV,PV)")
-    #ax.set_ylabel(r"N$_\text{genmatched}$/N$_\text{genVertex}$ [%]")
-    #ax.set_xlim(bins[0], bins[-1])
-    #ax.set_ylim(20, 100)
-    #ax.grid(True)
-    #fig.savefig("/t3home/gcelotto/BTV/plots/EffVsThreshold_"+suffix+".png", bbox_inches='tight')
-    #print("Saved /t3home/gcelotto/BTV/plots/EffVsThreshold_"+suffix+".png")
-
-    #print((df.matched==True).sum()/genVtxCouter) 
+    print("Saved in ", outName)
     return 
 
 if __name__ =="__main__":
