@@ -8,7 +8,8 @@ from scipy.optimize import linear_sum_assignment
 import mplhep as hep
 hep.style.use("CMS")
 from utilsForScript import distance_3d, getPdgMask
-from eventByEventNew import criterion0, criterion1
+from helpers import getTreeAndBranches, criterion0, criterion1, getTreeAndBranches
+
 def getSuffix(criterion, threshold):
     import math
     print(threshold, math.modf(threshold))
@@ -20,11 +21,7 @@ def getSuffix(criterion, threshold):
         suffix = "cr%d_t%dp%d"%(criterion, intPart, floatPart)
     
     return suffix
-def getTreeAndBranches(fileName):
-    f = uproot.open(fileName)
-    tree = f['Events']
-    branches = tree.arrays()
-    return tree, branches
+
 
 def main(nEvents, criterion, threshold):
     '''
@@ -57,7 +54,7 @@ def main(nEvents, criterion, threshold):
     nEvents = tree.num_entries if nEvents is None else nEvents
     suffix = getSuffix(criterion, params['threshold'])
     for ev in np.arange(nEvents):
-        if ev%1==0:
+        if ev%100==0:
             print("Event ", ev, "\r")
         
         nSV                         = branches["nSV"][ev]
@@ -77,6 +74,8 @@ def main(nEvents, criterion, threshold):
         GenPart_vy                  = branches["GenPart_vy"][ev]
         GenPart_vz                  = branches["GenPart_vz"][ev]
         ProbeTracks_matchedToSV     = branches["ProbeTracks_matchedToSV"][ev]
+        ProbeTracks_pt              = branches["ProbeTracks_pt"][ev]
+        ProbeTracks_eta             = branches["ProbeTracks_eta"][ev]
 
         # filter the gen part of interest
         pdgMask = getPdgMask(GenPart_pdgId=GenPart_pdgId)   # list of pdgId consider as genVertices
@@ -95,7 +94,8 @@ def main(nEvents, criterion, threshold):
         
          
         for mes in mesons:            
-            nDaughters = sum(GenPart_genPartIdxMother == mes)
+            nDaughters = sum((GenPart_genPartIdxMother == mes) & (abs(GenPart_pdgId)!=12) & (abs(GenPart_pdgId)!=14) & (abs(GenPart_pdgId)!=16) & (GenPart_pt>10) & (abs(GenPart_eta)<2.5) )
+            #nDaughters = sum((GenPart_genPartIdxMother == mes))
 
             for gp in range(nGenPart):
                 if (GenPart_genPartIdxMother[gp] == mes):
@@ -125,7 +125,7 @@ def main(nEvents, criterion, threshold):
 
     # Matching
         SVs = np.array([(x, y, z) for x, y, z in zip(SV_x, SV_y, SV_z)])
-        tracksCounters = np.array([sum(ProbeTracks_matchedToSV == idx) for idx in range(nSV)])
+        tracksCounters = np.array([sum((ProbeTracks_matchedToSV == idx) & (ProbeTracks_pt > 10) & (abs(ProbeTracks_eta)<2.5)) for idx in range(nSV)])
 
         
         # matrix of distances
@@ -135,7 +135,7 @@ def main(nEvents, criterion, threshold):
         #        distances[i][j] = distance_3d(SVs[i], (df_event.vx[j], df_event.vy[j], df_event.vz[j]) )
         distances = np.array([[distance_3d(sv, (vx, vy, vz)) for vx, vy, vz in zip(df_event.vx, df_event.vy, df_event.vz)] for sv in SVs ])
         # distances_normalized = distances / np.linalg.norm(SVs - np.array([[PV_x, PV_y, PV_z]]), axis=1).reshape(-1, 1)
-        print(distances)
+        #print(distances)
         distances_normalized = distances.copy()
 
         for i in range(nSV):
@@ -145,10 +145,10 @@ def main(nEvents, criterion, threshold):
         # remove row and columns with normalized distances > 1
         if params['threshold']==-1:
             params['threshold']=np.inf
-        row_mask = np.all(distances_normalized > params['threshold'], axis=1)
-        col_mask = np.all(distances_normalized > params['threshold'], axis=0)
-        row_mask = np.logical_not(row_mask)
-        col_mask = np.logical_not(col_mask)
+        row_mask = np.all(distances_normalized > params['threshold'], axis=1) if nSV> 0 else None
+        col_mask = np.all(distances_normalized > params['threshold'], axis=0) if nSV> 0 else None
+        row_mask = np.logical_not(row_mask) if nSV> 0 else None
+        col_mask = np.logical_not(col_mask) if nSV>0 else None
         distances = distances[row_mask][:, col_mask]
         distances_normalized = distances_normalized[row_mask][:, col_mask]
 
