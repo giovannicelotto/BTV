@@ -1,10 +1,7 @@
-import uproot
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import math, sys
-import awkward as ak
-from scipy.optimize import linear_sum_assignment
+import sys
 import mplhep as hep
 hep.style.use("CMS")
 from utilsForScript import distance_3d, getPdgMask
@@ -44,13 +41,17 @@ def main(nEvents, criterion, threshold):
     
     GenPart_pdgId               = branches["GenPart_pdgId"]
     genVtxCouter = 0
-
-    df = pd.DataFrame({
-            'index'     :[], 'pdgID'     :[], 'pt'        :[],
-            'eta'       :[], 'phi'       :[], 'vx'        :[],
-            'vy'        :[], 'vz'        :[], 'displacement':[],
-            'matched'   :[], 'distance'  :[], 'normDistance':[]
-        })
+    daughterPt = 5
+    def getEmptyDf():
+        df = pd.DataFrame(columns=[
+            'idx'         ,   'pdgID'     , 'pt'        ,
+            'eta'           ,   'phi'       , 'vx'        ,
+            'vy'            ,   'vz'        , 'displacement',
+            'daughters_pt', 'daughters_pdgId',
+            'matched'       , 'distance'    , 'normDistance',
+            'probeTracksFromSV'])
+        return df
+    df = getEmptyDf()
     nEvents = tree.num_entries if nEvents is None else nEvents
     suffix = getSuffix(criterion, params['threshold'])
     for ev in np.arange(nEvents):
@@ -81,51 +82,42 @@ def main(nEvents, criterion, threshold):
         pdgMask = getPdgMask(GenPart_pdgId=GenPart_pdgId)   # list of pdgId consider as genVertices
         etaMask = abs(GenPart_eta)<params['eta_threshold']  # limit the genvertices to GenHadrons within tracker acceptance
         ptMask = GenPart_pt>params['pt_threshold']          # require pT of GenHadrons larger than 10 GeV
-        mesons = np.arange(nGenPart)[pdgMask & etaMask & ptMask]
+        daughterMask = GenPart_pdgId==GenPart_pdgId[GenPart_genPartIdxMother]     # particles w/ same pdgID of the mother
+        # but we need to exclude mothers with the same pdgID of the daughters
+        # GenPart_genPartIdxMother[daughterMask] is array of motherIdx with same pdg of daughter
+        mesons = np.arange(nGenPart)[pdgMask & etaMask & ptMask ]
+        #mesons = np.setdiff1d(mesons, GenPart_genPartIdxMother[daughterMask])
         
-        df_event = pd.DataFrame({
-            'index':[],     'pdgID':[],     'pt':[],
-            'eta':[],       'phi':[],       'vx':[],
-            'vy':[],        'vz':[],        'displacement':[],
-            'genDaughters':[],
-            'matched':[],   'distance':[],  'normDistance':[],
-            'probeTracksFromSV':[]
-        })
-        
+        df_event = getEmptyDf()
+        assert len(df_event)==0
          
-        for mes in mesons:            
-            nDaughters = sum((GenPart_genPartIdxMother == mes) & (abs(GenPart_pdgId)!=12) & (abs(GenPart_pdgId)!=14) & (abs(GenPart_pdgId)!=16) & (GenPart_pt>10) & (abs(GenPart_eta)<2.5) )
+        for mes in mesons:        
+            notNeutrinoMask = (abs(GenPart_pdgId)!=12) & (abs(GenPart_pdgId)!=14) & (abs(GenPart_pdgId)!=16)    
+            #nDaughters = sum((GenPart_genPartIdxMother == mes) & (notNeutrinoMask) & (GenPart_pt>daughterPt) & (abs(GenPart_eta)<2.5) )
+            daughters_pt = GenPart_pt[(GenPart_genPartIdxMother == mes) &  (notNeutrinoMask) & (abs(GenPart_eta)<2.5)]
+            daughters_pdgId = GenPart_pdgId[(GenPart_genPartIdxMother == mes) &  (notNeutrinoMask) & (abs(GenPart_eta)<2.5)]
             #nDaughters = sum((GenPart_genPartIdxMother == mes))
 
             for gp in range(nGenPart):
                 if (GenPart_genPartIdxMother[gp] == mes):
+
+                    row={'idx': mes, 'pdgID': GenPart_pdgId[mes], 'pt': GenPart_pt[mes], 'eta': GenPart_eta[mes], 'phi': GenPart_phi[mes], 'vx': GenPart_vx[gp], 'vy': GenPart_vy[gp], 'vz': GenPart_vz[gp],
+                     'displacement': distance_3d((GenPart_vx[gp], GenPart_vy[gp], GenPart_vz[gp]), (GenPart_vx[mes], GenPart_vy[mes], GenPart_vz[mes])),
+                     'daughters_pt': daughters_pt,'daughters_pdgId': daughters_pdgId, 'matched': False, 'distance': 999.1, 'normDistance': 999.1, 'probeTracksFromSV':0},
                     
-                    row = [gp,
-                           GenPart_pdgId[mes],
-                           GenPart_pt[mes],
-                           GenPart_eta[mes],
-                           GenPart_phi[mes],
-                           GenPart_vx[gp],
-                           GenPart_vy[gp],
-                           GenPart_vz[gp],
-                           distance_3d( #displacement
-                                        (GenPart_vx[gp], GenPart_vy[gp], GenPart_vz[gp]),
-                                        (GenPart_vx[mes], GenPart_vy[mes], GenPart_vz[mes])),
-                           nDaughters,
-                           False,
-                           999.,
-                           999.,
-                           0,# probetracks from SV
-                           ]
-                    
-                    df_event.loc[len(df_event)]=row
-                    
+                    if len(df_event)==0:
+                        df_event=pd.DataFrame(row)
+                    else:
+                        df_event=pd.concat([df_event, pd.DataFrame(row).reset_index(drop=True)], ignore_index=True)
+
                     break
+            #df_event.loc[len(df_event)]['daughters_pt']= ak.Array(daughters_pt)
         genVtxCouter=genVtxCouter+len(df_event.index)
 
     # Matching
         SVs = np.array([(x, y, z) for x, y, z in zip(SV_x, SV_y, SV_z)])
-        tracksCounters = np.array([sum((ProbeTracks_matchedToSV == idx) & (ProbeTracks_pt > 10) & (abs(ProbeTracks_eta)<2.5)) for idx in range(nSV)])
+        tracksCounters = np.array([sum((ProbeTracks_matchedToSV == idx) & (ProbeTracks_pt > daughterPt) & (abs(ProbeTracks_eta)<2.5)) for idx in range(nSV)])
+        
 
         
         # matrix of distances
@@ -159,14 +151,19 @@ def main(nEvents, criterion, threshold):
                                   PV_x=None, PV_y=None, GenPart_genPartIdxMother=GenPart_genPartIdxMother, GenPart_vx=GenPart_vx,
                                   GenPart_vy=GenPart_vy, col_mask=col_mask, row_mask=row_mask)
         else:
+
             df_event = criterion0(distances=distances, distances_normalized=distances_normalized, df_event=df_event, display=False,
                                   SVs=SVs, SV_chi2=None, PV_x=None, PV_y=None, GenPart_genPartIdxMother=GenPart_genPartIdxMother, GenPart_vx=GenPart_vx,
-                                  GenPart_vy=GenPart_vy, tracksCounters=tracksCounters, col_mask=col_mask, row_mask=row_mask)
+                                  GenPart_vy=GenPart_vy, tracksCounters=tracksCounters, ProbeTracks_pt=ProbeTracks_pt, ProbeTracks_matchedToSV=ProbeTracks_matchedToSV,
+                                  col_mask=col_mask, row_mask=row_mask)
             
         if not df_event.empty:
             df = pd.concat([df, df_event], ignore_index=True)
     
     outName = "/t3home/gcelotto/BTV/output/df_"+suffix+".parquet"
+    df['daughters_pt'] = df['daughters_pt'].apply(lambda x: ','.join(map(str, x)))
+    df['daughters_pdgId'] = df['daughters_pdgId'].apply(lambda x: ','.join(map(str, x)))
+    #df['probeTracks_pt'] = df['probeTracks_pt'].apply(lambda x: ','.join(map(str, x)))
     df.to_parquet(outName)
     print("Saved in ", outName)
     return 
