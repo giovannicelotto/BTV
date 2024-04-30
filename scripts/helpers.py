@@ -9,6 +9,7 @@ from scipy.optimize import linear_sum_assignment
 import mplhep as hep
 hep.style.use("CMS")
 def getTreeAndBranches(fileName):
+    print("Opening ", fileName)
     f = uproot.open(fileName)
     tree = f['Events']
     branches = tree.arrays()
@@ -25,9 +26,9 @@ def eventDisplay(df_event, SVs, SV_chi2, PV_x, PV_y, GenPart_genPartIdxMother, G
     y=0.4
     for row in range(len(df_event)):
         ax.text(x=df_event.vx.iloc[row], y=df_event.vy.iloc[row], s=df_event.pdgClass.iloc[row], fontsize=12)
-        ax.text(x=1.02, y=y, s="%.1f"%(df_event.vx.iloc[row] ), ha='center', fontsize=14, transform=ax.transAxes)
-        ax.text(x=1.08, y=y, s="%.1f"%(df_event.vy.iloc[row] ), ha='center', fontsize=14, transform=ax.transAxes)
-        ax.text(x=1.14, y=y, s="%.1f"%(df_event.vz.iloc[row] ), ha='center', fontsize=14, transform=ax.transAxes)
+        ax.text(x=1.02, y=y, s="%.2f"%(df_event.vx.iloc[row] ), ha='center', fontsize=14, transform=ax.transAxes)
+        ax.text(x=1.08, y=y, s="%.2f"%(df_event.vy.iloc[row] ), ha='center', fontsize=14, transform=ax.transAxes)
+        ax.text(x=1.14, y=y, s="%.2f"%(df_event.vz.iloc[row] ), ha='center', fontsize=14, transform=ax.transAxes)
         ax.text(x=1.2, y=y, s="%s"%(df_event.pdgClass[row] ), ha='center', fontsize=14, transform=ax.transAxes)
         y=y-0.05
         if GenPart_genPartIdxMother[df_event.idx.iloc[row]]!=-1:
@@ -39,10 +40,10 @@ def eventDisplay(df_event, SVs, SV_chi2, PV_x, PV_y, GenPart_genPartIdxMother, G
         ax.text(x=1.2, y=0.95, s="chi2", ha='center', fontsize=14, transform=ax.transAxes)
         y=0.9
         for row in range(len(SVs)):
-            ax.text(x=1.02, y=y, s="%.1f"%(SVs[row][0]), ha='center', fontsize=14, transform=ax.transAxes)
-            ax.text(x=1.08, y=y, s="%.1f"%(SVs[row][1]), ha='center', fontsize=14, transform=ax.transAxes)
-            ax.text(x=1.14, y=y, s="%.1f"%(SVs[row][2]), ha='center', fontsize=14, transform=ax.transAxes)
-            ax.text(x=1.20, y=y, s="%.1f"%(SV_chi2[row]), ha='center', fontsize=14, transform=ax.transAxes)
+            ax.text(x=1.02, y=y, s="%.2f"%(SVs[row][0]), ha='center', fontsize=14, transform=ax.transAxes)
+            ax.text(x=1.08, y=y, s="%.2f"%(SVs[row][1]), ha='center', fontsize=14, transform=ax.transAxes)
+            ax.text(x=1.14, y=y, s="%.2f"%(SVs[row][2]), ha='center', fontsize=14, transform=ax.transAxes)
+            ax.text(x=1.20, y=y, s="%.2f"%(SV_chi2[row]), ha='center', fontsize=14, transform=ax.transAxes)
             y=y-0.05
 
         ax.scatter(SVs[:,0], SVs[:,1], label='Reco SV', marker="s", color='C1')
@@ -64,9 +65,29 @@ def eventDisplay(df_event, SVs, SV_chi2, PV_x, PV_y, GenPart_genPartIdxMother, G
     return fig, ax
 
 
-def criterion0(distances, distances_normalized, df_event, display, SVs, SV_chi2, PV_x, PV_y, GenPart_genPartIdxMother, GenPart_vx, GenPart_vy, tracksCounters, col_mask, row_mask):
+def criterion0_new(distances, rows, tracksCounters, ProbeTracks_pt):
+
+    while (np.any(distances < 997)):
+        recoIdx, genIdx = np.unravel_index(np.argmin(distances, axis=None), distances.shape)[:2]
+        if distances[recoIdx, genIdx]*10 - np.array(rows[genIdx]['displacement']) > 5:
+            # dont match the gen part
+            distances[recoIdx, genIdx]=998
+            continue
+        # put rows distance and matched
+        rows[genIdx]['distance']=distances[recoIdx, genIdx]
+        rows[genIdx]['matched']=True
+
+        # instead of deleting matched vertices, replace row and columns with high values
+        distances[recoIdx, :]=[998]*distances.shape[1]
+        distances[:, genIdx]=[998]*distances.shape[0]
+    return rows
+
+
+def criterion0(distances, distances_normalized, df_event, display, SVs, SV_chi2, PV_x, PV_y, GenPart_genPartIdxMother, GenPart_vx, GenPart_vy, tracksCounters, ProbeTracks_pt,
+ProbeTracks_matchedToSV, col_mask, row_mask):
     if display:
         fig, ax = eventDisplay(df_event=df_event, SVs=SVs, SV_chi2=SV_chi2, PV_x=PV_x, PV_y=PV_y, GenPart_genPartIdxMother=GenPart_genPartIdxMother, GenPart_vx=GenPart_vx, GenPart_vy=GenPart_vy)
+    
     while (np.any(distances < 997)):
         minIdx = np.unravel_index(np.argmin(distances, axis=None), distances.shape)
         #try:
@@ -75,18 +96,21 @@ def criterion0(distances, distances_normalized, df_event, display, SVs, SV_chi2,
             # dont match the gen part
             distances[minIdx[0], minIdx[1]]=998
             continue
-
         df_event.loc[minIdx[1], 'matched']=True
         df_event.loc[minIdx[1], 'distance']=distances[minIdx[0], minIdx[1]]
         df_event.loc[minIdx[1], 'normDistance']=distances_normalized[minIdx[0], minIdx[1]]
         df_event.loc[minIdx[1], 'probeTracksFromSV']=tracksCounters[minIdx[0]]
+        
+        
+        #df_event.loc[minIdx[1], 'probeTracks_pt'] = probePt if len(probePt)>0 else [None]
+        
         if display:
             x_values = [SVs[row_mask][minIdx[0]][0], np.array(df_event.vx)[col_mask][minIdx[1]]]
             y_values = [SVs[row_mask][minIdx[0]][1], np.array(df_event.vy)[col_mask][minIdx[1]]]
             #plot matching
             ax.plot(x_values, y_values, color='black', marker='none')
 
-        # instead of deleting matched vertices, replace them with high values
+        # instead of deleting matched vertices, replace row and columns with high values
         distances[minIdx[0], :]=[998]*distances.shape[1]
         distances[:, minIdx[1]]=[998]*distances.shape[0]
 
