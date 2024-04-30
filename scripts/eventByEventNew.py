@@ -87,6 +87,12 @@ def main(nEvents, criterion, threshold):
         etaMask = abs(GenPart_eta)<params['eta_threshold']
         ptMask = GenPart_pt>params['pt_threshold']
         mesons = np.arange(nGenPart)[pdgMask & etaMask & ptMask]
+        daughterMask = GenPart_pdgId==GenPart_pdgId[GenPart_genPartIdxMother]     # particles w/ same pdgID of the mother
+        # but we need to exclude mothers with the same pdgID of the daughters
+        # GenPart_genPartIdxMother[daughterMask] is array of motherIdx with same pdg of daughter
+        print(np.intersect1d(mesons, GenPart_genPartIdxMother[daughterMask]))
+        mesons = np.arange(nGenPart)[pdgMask & etaMask & ptMask ]
+        mesons = np.setdiff1d(mesons, GenPart_genPartIdxMother[daughterMask])
         
         df_event = pd.DataFrame({
             'idx':[],     'pdgID':[],     'pt':[],
@@ -158,11 +164,11 @@ def main(nEvents, criterion, threshold):
         col_mask = np.all(distances_normalized > params['threshold'], axis=0)
         row_mask = np.logical_not(row_mask)
         col_mask = np.logical_not(col_mask)
-        print("Shape before ", distances.shape)
+        #print("Shape before ", distances.shape)
         distances = distances[row_mask][:, col_mask]
-        print("Shape after ", distances.shape)
+        #print("Shape after ", distances.shape)
         distances_normalized = distances_normalized[row_mask][:, col_mask]
-        print(distances)
+        #print(distances)
 
         
         if criterion:
