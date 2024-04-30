@@ -142,6 +142,14 @@ def main(criterion, threshold):
     suffix=getSuffix(criterion, threshold)
     df = pd.read_parquet("/t3home/gcelotto/BTV/output/df_"+suffix+".parquet")
     df['mesons'] = df['pdgID'].apply(map_to_groups)
+    df['daughters_pt'] = df['daughters_pt'].apply(lambda x: list(map(float, x.split(','))) if len(x)>0 else None)
+    df['daughters_pdgId'] = df['daughters_pdgId'].apply(lambda x: list(map(int, x.split(','))) if len(x)>0 else None)
+    df['genDaughters'] = df['daughters_pt'].apply(lambda x: len(x) if x is not None else 0 )
+
+    # example of how to get mask of the daughters properties
+    df['genDaughters_pt30Mask'] = df['daughters_pt'].apply(lambda x: np.array(x)>30 if x is not None else None )
+    df['genDaughters_pdgMask'] = df['daughters_pdgId'].apply(lambda x: np.isin(x, [111, 211, -211]) if x is not None else None )
+    
     
     import os
     folders = ["/t3home/gcelotto/BTV/plots/%s"%suffix,
@@ -156,26 +164,60 @@ def main(criterion, threshold):
         if not os.path.exists(folder):
             os.makedirs(folder)
         
-     
-    fig,ax = plt.subplots(1, 1)
-    bins = np.linspace(-5.5, 5.5, 12)
-    c = np.histogram(df[df.matched==True].genDaughters - df[df.matched==True].probeTracksFromSV, bins=bins)[0]
-    ax.hist(bins[:-1], bins=bins, weights=c, histtype=u'step', linewidth=4, color='black', label='Inclusive')[0]
-    close = np.histogram(df[(df.matched==True) & (df.distance<0.01)].genDaughters - df[(df.matched==True) & (df.distance<0.01)].probeTracksFromSV, bins=bins)[0]
-    close = ax.hist(bins[:-1], bins=bins, weights=close, label='0.00 < d < 0.01')[0]
-    medium = np.histogram(df[(df.matched==True) & (df.distance>0.01) & (df.distance<0.1) ].genDaughters - df[(df.matched==True) & (df.distance>0.01) & (df.distance<0.1)].probeTracksFromSV, bins=bins)[0]
-    medium = ax.hist(bins[:-1], bins=bins, weights=medium, bottom=close, label='0.01 < d < 0.10')[0]
-    high = np.histogram(df[(df.matched==True) & (df.distance>0.1) ].genDaughters - df[(df.matched==True) & (df.distance>0.1)].probeTracksFromSV, bins=bins)[0]
-    high = ax.hist(bins[:-1], bins=bins, weights=high, bottom=(close+medium), label='0.10 < d < Inf')[0]
-    ax.set_xlabel("#GenDaughters - #ProbeMatched")
-    ax.set_ylabel("")
-    ax.legend()
-    
-    #ax.text(x=0.95, y=0.95, s="Matched Entries ", transform=ax.transAxes, horizontalalignment='right')
-    outName = "/t3home/gcelotto/BTV/plots/cr0_t-1/temp.png"
-    hep.cms.label()
-    fig.savefig(outName, bbox_inches='tight')
-    print("Saved %s"%outName)
+    if True:
+        fig,ax = plt.subplots(nrows=1, ncols=1, sharex=True, layout='constrained')
+        bins = np.linspace(-5.5, 5.5, 12)
+        c = np.histogram(df[(df.matched==True) & (df.mesons==0)].genDaughters - df[(df.matched==True) & (df.mesons==0)].probeTracksFromSV, bins=bins)[0]
+        ax.hist(bins[:-1], bins=bins, weights=c, histtype=u'step', linewidth=4, color='black', label='Inclusive')[0]
+        close = np.histogram(df[(df.matched==True) & (df.mesons==0) & (df.distance<0.01)].genDaughters - df[(df.matched==True) & (df.mesons==0) & (df.distance<0.01)].probeTracksFromSV, bins=bins)[0]
+        close = ax.hist(bins[:-1], bins=bins, weights=close, label='0.00 < d < 0.01')[0]
+        medium = np.histogram(df[(df.matched==True) & (df.mesons==0) & (df.distance>0.01) & (df.distance<0.1) ].genDaughters - df[(df.matched==True) & (df.mesons==0) & (df.distance>0.01) & (df.distance<0.1)].probeTracksFromSV, bins=bins)[0]
+        medium = ax.hist(bins[:-1], bins=bins, weights=medium, bottom=close, label='0.01 < d < 0.10')[0]
+        high = np.histogram(df[(df.matched==True) & (df.mesons==0) & (df.distance>0.1) ].genDaughters - df[(df.matched==True) & (df.mesons==0) & (df.distance>0.1)].probeTracksFromSV, bins=bins)[0]
+        high = ax.hist(bins[:-1], bins=bins, weights=high, bottom=(close+medium), label='0.10 < d < Inf')[0]
+        ax.set_xlabel("#GenDaughters - #ProbeMatched")
+        ax.set_ylabel("")
+        ax.legend()
+        outName = "/t3home/gcelotto/BTV/plots/cr0_t-1/temp.png"
+        hep.cms.label()
+        fig.savefig(outName, bbox_inches='tight')
+        print("Saved %s"%outName)
+
+        ax.clear()
+        bins = np.linspace(0, 0.2, 30)
+        for delta in [0, 1, 2]:
+            m = (df[(df.matched==True) & (df.mesons==0)].genDaughters - df[(df.matched==True) & (df.mesons==0)].probeTracksFromSV)==delta
+            c = np.histogram(np.clip(df[(df.matched==True) & (df.mesons==0)][m].distance, bins[0], bins[-1]), bins=bins, )[0]
+            cerr = np.sqrt(c)
+            c=c/np.sum(c)
+            cerr= cerr/np.sum(c)
+            ax.hist(bins[:-1], bins=bins, weights=c, histtype=u'step',linewidth=2, label='Delta NTracks %d'%delta)[0]
+        #ax.set_yscale('log')
+        ax.set_xlabel("Distance Gen-Reco matching")
+        ax.set_ylabel("")
+        ax.legend()
+        outName = "/t3home/gcelotto/BTV/plots/cr0_t-1/temp_2.png"
+        hep.cms.label()
+        fig.savefig(outName, bbox_inches='tight')
+        print("Saved %s"%outName)
+
+        ax.clear()
+        bins = np.linspace(0, 5, 30)
+        for delta in [0, 1, 2]:
+            m = (df[(df.matched==True) & (df.mesons==0)].genDaughters - df[(df.matched==True) & (df.mesons==0)].probeTracksFromSV)==delta
+            c = np.histogram(np.clip(df[(df.matched==True) & (df.mesons==0)][m].displacement, bins[0], bins[-1]), bins=bins, )[0]
+            cerr = np.sqrt(c)
+            c=c/np.sum(c)
+            cerr= cerr/np.sum(c)
+            ax.hist(bins[:-1], bins=bins, weights=c, histtype=u'step',linewidth=2, label='Delta NTracks %d'%delta)[0]
+        #ax.set_yscale('log')
+        ax.set_xlabel("GenPart Travel")
+        ax.set_ylabel("")
+        ax.legend()
+        outName = "/t3home/gcelotto/BTV/plots/cr0_t-1/temp_3.png"
+        hep.cms.label()
+        fig.savefig(outName, bbox_inches='tight')
+        print("Saved %s"%outName)
 
     plot2d(x=df[df.matched == True].displacement, y=df[df.matched == True].distance,
            x_bins=np.linspace(0, 10, 20), y_bins=np.linspace(0, 5, 20),
