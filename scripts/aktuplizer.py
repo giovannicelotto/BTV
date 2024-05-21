@@ -4,7 +4,7 @@ import pandas as pd
 import sys
 import mplhep as hep
 hep.style.use("CMS")
-from utilsForScript import distance_3d, getPdgMask
+from BTV.scripts.tuplizer.utilsForScript import distance_3d, getPdgMask
 from helpers import getTreeAndBranches, criterion0_new, criterion1, getTreeAndBranches
 import awkward as ak
 
@@ -69,7 +69,7 @@ def main(nEvents, criterion):
         ProbeTracks_pt              = branches["ProbeTracks_pt"][ev]
         ProbeTracks_eta             = branches["ProbeTracks_eta"][ev]
 
-        # filter the gen part of interest
+    # filter the genVertices of interest
         pdgMask = getPdgMask(GenPart_pdgId=GenPart_pdgId)   # list of pdgId consider as genVertices
         etaMask = abs(GenPart_eta)<params['eta_tracker']  # limit the genvertices to GenHadrons within tracker acceptance
         ptMask = GenPart_pt>params['minPt_meson']          # require pT of GenHadrons larger than 10 GeV
@@ -92,7 +92,7 @@ def main(nEvents, criterion):
             dau = np.arange(nGenPart)[GenPart_genPartIdxMother == mes][0] if np.sum(GenPart_genPartIdxMother == mes)>0 else -1
             if dau==-1:
                 continue
-            row={'idx': mes, 'pdgID': GenPart_pdgId[mes], 'pt': GenPart_pt[mes], 'eta': GenPart_eta[mes], 'phi': GenPart_phi[mes], 'vx': GenPart_vx[dau], 'vy': GenPart_vy[dau], 'vz': GenPart_vz[dau],
+            row={'ev': mes, 'idx': mes, 'pdgID': GenPart_pdgId[mes], 'pt': GenPart_pt[mes], 'eta': GenPart_eta[mes], 'phi': GenPart_phi[mes], 'vx': GenPart_vx[dau], 'vy': GenPart_vy[dau], 'vz': GenPart_vz[dau],
                 'displacement': distance_3d((GenPart_vx[dau], GenPart_vy[dau], GenPart_vz[dau]), (GenPart_vx[mes], GenPart_vy[mes], GenPart_vz[mes])),
                 'daughters_pt': daughters_pt,'daughters_pdgId': daughters_pdgId, 'matched': False, 'distance': 999.1, 'probeTracksFromSV':0}
             rows.append(row)
@@ -107,26 +107,28 @@ def main(nEvents, criterion):
         for i in range(nSV):
             for j in range(len(rows)):
                 distances[i][j] = distance_3d(SVs[i], (rows[j]['vx'], rows[j]['vy'], rows[j]['vz']) )
-        
+    # criterion is 0
+                
         if criterion==1:
         # if one reco/gen vertex has all the possible matching > 2.5 exlude that row or column
-            pass
+            assert False
         else:
             rows = criterion0_new(distances, rows, tracksCounters, ProbeTracks_pt)
             
         for row in rows:
-            array = ak.Array(row)
+            array = pd.DataFrame(row)
             if df is None:
                 df=array
                 print(type(df))
             else:
-                print(array)
-                df = ak.concatenate([df, array])
+                
+                df = pd.concat([df, array])
         #if not df_event.empty:
         #    pass
             #df = pd.concat([df, df_event], ignore_index=True)
     
     outName = "/t3home/gcelotto/BTV/output/df_"+suffix+".parquet"
+    df.to_parquet(outName, index=False)
     #df['daughters_pt'] = df['daughters_pt'].apply(lambda x: ','.join(map(str, x)))
     #df['daughters_pdgId'] = df['daughters_pdgId'].apply(lambda x: ','.join(map(str, x)))
     #df['probeTracks_pt'] = df['probeTracks_pt'].apply(lambda x: ','.join(map(str, x)))

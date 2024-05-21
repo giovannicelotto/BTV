@@ -4,7 +4,7 @@ import pandas as pd
 import sys
 import mplhep as hep
 hep.style.use("CMS")
-from utilsForScript import distance_3d, getPdgMask
+from tuplizer.utilsForScript import distance_3d, getPdgMask
 from helpers import getTreeAndBranches, criterion0, criterion1, getTreeAndBranches
 
 def getSuffix(criterion, threshold):
@@ -100,7 +100,6 @@ def main(nEvents, criterion, threshold):
 
             for gp in range(nGenPart):
                 if (GenPart_genPartIdxMother[gp] == mes):
-
                     row={'idx': mes, 'pdgID': GenPart_pdgId[mes], 'pt': GenPart_pt[mes], 'eta': GenPart_eta[mes], 'phi': GenPart_phi[mes], 'vx': GenPart_vx[gp], 'vy': GenPart_vy[gp], 'vz': GenPart_vz[gp],
                      'displacement': distance_3d((GenPart_vx[gp], GenPart_vy[gp], GenPart_vz[gp]), (GenPart_vx[mes], GenPart_vy[mes], GenPart_vz[mes])),
                      'daughters_pt': daughters_pt,'daughters_pdgId': daughters_pdgId, 'matched': False, 'distance': 999.1, 'normDistance': 999.1, 'probeTracksFromSV':0},
@@ -152,10 +151,15 @@ def main(nEvents, criterion, threshold):
                                   GenPart_vy=GenPart_vy, col_mask=col_mask, row_mask=row_mask)
         else:
 
-            df_event = criterion0(distances=distances, distances_normalized=distances_normalized, df_event=df_event, display=False,
+            df_event, probePt_event = criterion0(distances=distances, distances_normalized=distances_normalized, df_event=df_event, display=False,
                                   SVs=SVs, SV_chi2=None, PV_x=None, PV_y=None, GenPart_genPartIdxMother=GenPart_genPartIdxMother, GenPart_vx=GenPart_vx,
                                   GenPart_vy=GenPart_vy, tracksCounters=tracksCounters, ProbeTracks_pt=ProbeTracks_pt, ProbeTracks_matchedToSV=ProbeTracks_matchedToSV,
                                   col_mask=col_mask, row_mask=row_mask)
+            print(len(probePt_event))
+            print(len(df_event))
+            df_event.loc[:,'probeTracks_pt']=[None]*len(df_event)
+            df_event.loc[:, 'probeTracks_pt'] = probePt_event
+            
             
         if not df_event.empty:
             df = pd.concat([df, df_event], ignore_index=True)

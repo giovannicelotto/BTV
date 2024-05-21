@@ -76,6 +76,7 @@ def criterion0_new(distances, rows, tracksCounters, ProbeTracks_pt):
         # put rows distance and matched
         rows[genIdx]['distance']=distances[recoIdx, genIdx]
         rows[genIdx]['matched']=True
+        rows[genIdx]['probeTracksFromSV']=tracksCounters[recoIdx]
 
         # instead of deleting matched vertices, replace row and columns with high values
         distances[recoIdx, :]=[998]*distances.shape[1]
@@ -87,40 +88,44 @@ def criterion0(distances, distances_normalized, df_event, display, SVs, SV_chi2,
 ProbeTracks_matchedToSV, col_mask, row_mask):
     if display:
         fig, ax = eventDisplay(df_event=df_event, SVs=SVs, SV_chi2=SV_chi2, PV_x=PV_x, PV_y=PV_y, GenPart_genPartIdxMother=GenPart_genPartIdxMother, GenPart_vx=GenPart_vx, GenPart_vy=GenPart_vy)
-    
+    probePt_event=[]
     while (np.any(distances < 997)):
-        minIdx = np.unravel_index(np.argmin(distances, axis=None), distances.shape)
+        recoIdx, genIdx = np.unravel_index(np.argmin(distances, axis=None), distances.shape)
         #try:
 
-        if distances[minIdx[0], minIdx[1]]*10 - np.array(df_event.displacement[col_mask])[minIdx[1]] > 5:
+        if distances[recoIdx, genIdx]*10 - np.array(df_event.displacement[col_mask])[genIdx] > 5:
             # dont match the gen part
-            distances[minIdx[0], minIdx[1]]=998
-            continue
-        df_event.loc[minIdx[1], 'matched']=True
-        df_event.loc[minIdx[1], 'distance']=distances[minIdx[0], minIdx[1]]
-        df_event.loc[minIdx[1], 'normDistance']=distances_normalized[minIdx[0], minIdx[1]]
-        df_event.loc[minIdx[1], 'probeTracksFromSV']=tracksCounters[minIdx[0]]
+            distances[recoIdx, genIdx]=998
+            probePt_vertex =  []
+            probePt_event.append(probePt_vertex)
+        df_event.loc[genIdx, 'matched']=True
+        df_event.loc[genIdx, 'distance']=distances[recoIdx, genIdx]
+        df_event.loc[genIdx, 'normDistance']=distances_normalized[recoIdx, genIdx]
+        df_event.loc[genIdx, 'probeTracksFromSV']=tracksCounters[recoIdx]
+        probePt_vertex = ProbeTracks_pt[ProbeTracks_matchedToSV==recoIdx] if np.sum(ProbeTracks_matchedToSV==recoIdx)>0 else []
+        probePt_event.append(probePt_vertex)
         
         
-        #df_event.loc[minIdx[1], 'probeTracks_pt'] = probePt if len(probePt)>0 else [None]
+        
+        #df_event.loc[genIdx, 'probeTracks_pt'] = probePt if len(probePt)>0 else [None]
         
         if display:
-            x_values = [SVs[row_mask][minIdx[0]][0], np.array(df_event.vx)[col_mask][minIdx[1]]]
-            y_values = [SVs[row_mask][minIdx[0]][1], np.array(df_event.vy)[col_mask][minIdx[1]]]
+            x_values = [SVs[row_mask][recoIdx][0], np.array(df_event.vx)[col_mask][genIdx]]
+            y_values = [SVs[row_mask][recoIdx][1], np.array(df_event.vy)[col_mask][genIdx]]
             #plot matching
             ax.plot(x_values, y_values, color='black', marker='none')
 
         # instead of deleting matched vertices, replace row and columns with high values
-        distances[minIdx[0], :]=[998]*distances.shape[1]
-        distances[:, minIdx[1]]=[998]*distances.shape[0]
+        distances[recoIdx, :]=[998]*distances.shape[1]
+        distances[:, genIdx]=[998]*distances.shape[0]
 
-        distances_normalized[minIdx[0], :] = [998]*distances.shape[1]
-        distances_normalized[:, minIdx[1]] = [998]*distances.shape[0]
+        distances_normalized[recoIdx, :] = [998]*distances.shape[1]
+        distances_normalized[:, genIdx] = [998]*distances.shape[0]
     if display:
         hep.cms.label()
         fig.savefig("/t3home/gcelotto/BTV/plots/EventGenReco.png", bbox_inches='tight')
         plt.close('all')
-    return df_event
+    return df_event, probePt_event
 
 def criterion1(distances, distances_normalized, df_event, display, SVs, SV_chi2, PV_x, PV_y, GenPart_genPartIdxMother, GenPart_vx, GenPart_vy, col_mask, row_mask):
     if display:

@@ -8,7 +8,7 @@ import random
 from scipy.optimize import linear_sum_assignment
 import mplhep as hep
 hep.style.use("CMS")
-from utilsForScript import distance_3d, getPdgMask
+from BTV.scripts.tuplizer.utilsForScript import distance_3d, getPdgMask
 #from efficiency_differential import map_to_groups
 def map_to_groups_letter(value):
     if abs(value) in [511, 521, 531, 541]:

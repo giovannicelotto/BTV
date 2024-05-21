@@ -8,7 +8,7 @@ import random
 from scipy.optimize import linear_sum_assignment
 import mplhep as hep
 hep.style.use("CMS")
-from utilsForScript import distance_3d, getPdgMask
+from BTV.scripts.tuplizer.utilsForScript import distance_3d, getPdgMask
 from helpers import getTreeAndBranches, criterion0, criterion1, eventDisplay, getTreeAndBranches
 
 
