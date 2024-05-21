@@ -2,4 +2,5 @@
 *.png
 *.pdf
 *.root
+*.pyc
 CMSSW_12_4_8
