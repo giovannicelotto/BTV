@@ -7,7 +7,7 @@ import awkward as ak
 from scipy.optimize import linear_sum_assignment
 import mplhep as hep
 hep.style.use("CMS")
-from utilsForScript import distance_3d, getPdgMask
+from BTV.scripts.tuplizer.utilsForScript import distance_3d, getPdgMask
 def main():
     params = {
         'threshold' : 1,
