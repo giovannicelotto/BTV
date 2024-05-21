@@ -64,14 +64,16 @@ def efficiencyVsVariable(num, den, bins, xlabel, outName, title=None, tick_posit
     ax.set_ylabel("Efficiency [%]")
     ax.set_ylim(0, 1)
     ax.text(x=0.95, y=0.95, s="Matched Entries %d"%(len(num)), transform=ax.transAxes, horizontalalignment='right')
-    fig.savefig(outName, bbox_inches='tight')
-    print("Saved %s"%outName)
-
+    print(tick_positions)
     if tick_positions is not None:
+        print("tick_positions customized")
         ax.set_xticks(tick_positions, tick_labels,  rotation=90)
     if title is not None:
         ax.set_title(title)
+    fig.savefig(outName, bbox_inches='tight')
+    print("Saved %s"%outName)
     return
+
 
 def plotPtEtaMatchedVsNonMatched(df, folder, suffix,title):
     #Bmask = (df.pdgID == 511) | (df.pdgID == 521) | (df.pdgID == 531) | (df.pdgID == 541)
