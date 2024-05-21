@@ -19,7 +19,7 @@ def main(fileName, fileNumber):
         }
 
     event = array('l', [0])
-    nSV = array('d', [0])
+    nSV = array('l', [0])
     #nGenPart = array('d', [0])
     #idx               = array('d', [0])    
     pdgID             = array('l', [0])    
@@ -42,7 +42,7 @@ def main(fileName, fileNumber):
     #probeTracksFromSV = array('d', [0])                
 
     tree.Branch("event",              event,                "event/I")                     
-    tree.Branch("nSV",              nSV,                "nSV/D")
+    tree.Branch("nSV",              nSV,                "nSV/I")
     #tree.Branch("idx",              idx,                "idx/D")    
     tree.Branch("pdgID",            pdgID,              "pdgID/I")    
     tree.Branch("pt",               pt,                 "pt/D")
@@ -68,13 +68,13 @@ def main(fileName, fileNumber):
     f = uproot.open(fileName)
     tree_ = f['Events']
     branches = tree_.arrays()
-    maxEntries = tree_.num_entries
+    maxEntries = 1000 if prova == 0 else tree_.num_entries
     print("%d entries "%maxEntries)
     for ev in range(maxEntries):
-        if ev%100==0:
-            print(100 * ev/maxEntries)
+        #if ev%100==0:
+        #    print(100 * ev/maxEntries)
         #input("next")
-        #print("event", ev)
+        print("event", ev)
         # info extrcted per event
         nSV_                         = branches["nSV"][ev]
         nGenPart_                    = branches["nGenPart"][ev]
@@ -125,7 +125,7 @@ def main(fileName, fileNumber):
         matchingKey ={}
         while (np.any(distances_filled < 997)):
             recoIdx, genIdx = np.unravel_index(np.argmin(distances_filled, axis=None), distances.shape)
-            #print(recoIdx, genIdx)
+            #print(recoIdx, genIdx, " possibly matched")
             recoIdx = int(recoIdx)
             genIdx = int(genIdx)
             #print("Distance", distances[recoIdx, genIdx])
@@ -135,50 +135,78 @@ def main(fileName, fileNumber):
             recoMask = (ProbeTracks_pt_>1) & (abs(ProbeTracks_eta_)<2.5) 
             genMask = (GenPart_pt_>1) & (abs(GenPart_eta_)<2.5)
 
-            eta_recos = ProbeTracks_eta_[abs(ProbeTracks_matchedToSV_==recoIdx) & recoMask]
-            phi_recos = ProbeTracks_phi_[abs(ProbeTracks_matchedToSV_==recoIdx) & recoMask]
-            pt_recos = ProbeTracks_pt_[abs(ProbeTracks_matchedToSV_==recoIdx) & recoMask]
+            eta_recos = ProbeTracks_eta_[abs(ProbeTracks_matchedToSV_==recoIdx) & (recoMask)]
+            phi_recos = ProbeTracks_phi_[abs(ProbeTracks_matchedToSV_==recoIdx) & (recoMask)]
+            pt_recos = ProbeTracks_pt_[abs(ProbeTracks_matchedToSV_==recoIdx) & (recoMask)]
             
             eta_gens = GenPart_eta_[(GenPart_genPartIdxMother_==GenPart_genPartIdxMother_[allDaughters[genIdx]]) & genMask]
             phi_gens = GenPart_phi_[(GenPart_genPartIdxMother_==GenPart_genPartIdxMother_[allDaughters[genIdx]]) & genMask]
             pt_gens = GenPart_pt_[(GenPart_genPartIdxMother_==GenPart_genPartIdxMother_[allDaughters[genIdx]]) & genMask]
-
+            #print("len(eta_recos) ",len(eta_recos))
             if len(eta_recos)>0:
                 deltaRMatrix = np.array([[np.sqrt((eta_reco - eta_gen)**2+(phi_reco - phi_gen)**2) for eta_gen, phi_gen in zip(eta_gens, phi_gens)] for eta_reco, phi_reco in zip(eta_recos, phi_recos)])
-                recoDeltaRIdx, genDeltaRIdx = np.unravel_index(np.argmin(deltaRMatrix, axis=None), deltaRMatrix.shape)
-                if deltaRMatrix[recoDeltaRIdx, genDeltaRIdx]<0.4:
-                    #print("deltaR matrix 1 passed", deltaRMatrix[recoDeltaRIdx, genDeltaRIdx])
-
-                    ptMatrix = np.array([[abs(ptReco-ptGen)/(ptReco+ptGen) for ptGen in pt_gens] for ptReco in pt_recos])
-
-                    if ptMatrix[recoDeltaRIdx, genDeltaRIdx]<0.1:
-                        #print("Pt matrix 1 passed", ptMatrix[recoDeltaRIdx, genDeltaRIdx])
-
-                        # look for the second track:
-                        deltaRMatrix[recoDeltaRIdx, :] = [999]*deltaRMatrix.shape[1]
-                        deltaRMatrix[:, genDeltaRIdx] = [999]*deltaRMatrix.shape[0]
-                        ptMatrix[recoDeltaRIdx, :] = [999]*ptMatrix.shape[1]
-                        ptMatrix[:, genDeltaRIdx] = [999]*ptMatrix.shape[0]
-                        recoDeltaRIdx_2, genDeltaRIdx_2 = np.unravel_index(np.argmin(deltaRMatrix, axis=None), deltaRMatrix.shape)
-                        if deltaRMatrix[recoDeltaRIdx_2, genDeltaRIdx_2]<0.4:
-                            #print("deltaR matrix 2 passed", deltaRMatrix[recoDeltaRIdx_2, genDeltaRIdx_2])
-                            if ptMatrix[recoDeltaRIdx_2, genDeltaRIdx_2]<0.1:
-                                #input('Next')
-                                #print("Ev ", ev)
-                                #print("reco pt ", pt_recos[recoDeltaRIdx_2])
-                                #print("pt gen ", pt_gens[genDeltaRIdx_2])
-                                #print("Pt matrix 2 passed", ptMatrix[recoDeltaRIdx_2, genDeltaRIdx_2])
-                                distances_filled[recoIdx, :]=[998]*distances_filled.shape[1]
-                                distances_filled[:, genIdx]=[998]*distances_filled.shape[0]
-                                matchingKey[genIdx]=recoIdx
-                            else:
-                                distances_filled[recoIdx, genIdx]=998
+                ptMatrix = np.array([[abs(ptReco-ptGen)/(ptReco+ptGen) for ptGen in pt_gens] for ptReco in pt_recos])
+                print("2 submatrices defined for the vertices ", recoIdx, genIdx)
+                if np.any((deltaRMatrix<0.4) & (ptMatrix<0.1)):
+                    # there is atleast one track matching that satisfied both condition
+                    #print("deltaR matrix 1 passed")
+                    #print("delta R matrix min", np.min(deltaRMatrix))
+                    while np.any(deltaRMatrix<0.4):
+                        recoDeltaRIdx, genDeltaRIdx = np.unravel_index(np.argmin(deltaRMatrix, axis=None), deltaRMatrix.shape)
+                        print("deltaRIdx ", recoDeltaRIdx, genDeltaRIdx)
+                        #print("reco, gen, value", recoDeltaRIdx, genDeltaRIdx, deltaRMatrix[recoDeltaRIdx, genDeltaRIdx])
+                        if ptMatrix[recoDeltaRIdx, genDeltaRIdx]<0.1:
+                            #print("Pt matrix 1 passed", ptMatrix[recoDeltaRIdx, genDeltaRIdx])
+                            # look for the second track:
+                            deltaRMatrix[recoDeltaRIdx, :] = [999]*deltaRMatrix.shape[1]
+                            deltaRMatrix[:, genDeltaRIdx] = [999]*deltaRMatrix.shape[0]
+                            ptMatrix[recoDeltaRIdx, :] = [999]*ptMatrix.shape[1]
+                            ptMatrix[:, genDeltaRIdx] = [999]*ptMatrix.shape[0]
+                            while np.any(deltaRMatrix<0.4):
+                                recoDeltaRIdx_2, genDeltaRIdx_2 = np.unravel_index(np.argmin(deltaRMatrix, axis=None), deltaRMatrix.shape)
+                                if deltaRMatrix[recoDeltaRIdx_2, genDeltaRIdx_2]<0.4:
+                                    #print("deltaR matrix 2 passed", deltaRMatrix[recoDeltaRIdx_2, genDeltaRIdx_2])
+                                    if ptMatrix[recoDeltaRIdx_2, genDeltaRIdx_2]<0.1:
+                                        #print("pass the pt. vertices matched")
+                                        #input('Next')
+                                        #print("Ev ", ev)
+                                        #print("reco pt ", pt_recos[recoDeltaRIdx_2])
+                                        #print("pt gen ", pt_gens[genDeltaRIdx_2])
+                                        #print("Pt matrix 2 passed", ptMatrix[recoDeltaRIdx_2, genDeltaRIdx_2])
+                                        #
+                                        distances_filled[recoIdx, :]=[998]*distances_filled.shape[1]
+                                        distances_filled[:, genIdx]=[998]*distances_filled.shape[0]
+                                        matchingKey[genIdx]=recoIdx
+                                        # to make all the while stop
+                                        deltaRMatrix=deltaRMatrix+100
+                                        break
+                                    else:
+                                        #print("pt 2 track non matched. try another second track")
+                                        deltaRMatrix[recoDeltaRIdx_2, genDeltaRIdx_2] = 998
+                                        if np.min(deltaRMatrix)>0.4:
+                                            #every attempt of second track failed. two vertices will not be matched
+                                            distances_filled[recoIdx, genIdx]=998
+                                else:
+                                    deltaRMatrix[recoDeltaRIdx_2, genDeltaRIdx_2] = 998
+                                    print("deltaR2 non passed")
+                                    #distances_filled[recoIdx, genIdx]=998
                         else:
-                            distances_filled[recoIdx, genIdx]=998
+                            # if the pt is not satisfied reject the daughters
+                            print("pt not satisfied, still a minimum?", np.min(deltaRMatrix))
+                            #print(deltaRMatrix, "\n\n")
+                            print("going to change this value", deltaRMatrix[recoDeltaRIdx, genDeltaRIdx])
+                            deltaRMatrix[recoDeltaRIdx, genDeltaRIdx]=998
+                            #print(deltaRMatrix[recoDeltaRIdx, genDeltaRIdx])  
+                            if np.all((deltaRMatrix>0.4) | (ptMatrix>0.1)):
+                                #the best deltaR does not have pt satisfied but a worse deltaR still <0.4 can satisfy this
+                                print("Filling the distances_filled matrix")
+                                distances_filled[recoIdx, genIdx]=998
+                            print(deltaRMatrix)
 
-                    else:
-                        distances_filled[recoIdx, genIdx]=998
+                            #continue
                 else:
+                    # if the minimum deltaR is > 0.4 reject the matching of the SV and gV
+                    print("deltaR matrix 1 NON passed")
                     distances_filled[recoIdx, genIdx]=998
                     continue
             else:
