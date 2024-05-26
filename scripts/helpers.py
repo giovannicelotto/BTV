@@ -56,10 +56,10 @@ def eventDisplay(df_event, SVs, SV_chi2, PV_x, PV_y, GenPart_genPartIdxMother, G
     ax.scatter(PV_x, PV_y, label='PV', color='red')
 
 
-    theta = np.linspace(0, 2*np.pi, 100)
-    x = PV_x + 0.1 * np.cos(theta)
-    y = PV_y + 0.1 * np.sin(theta)
-    ax.plot(x, y, color='C0')
+    #theta = np.linspace(0, 2*np.pi, 100)
+    #x = PV_x + 0.1 * np.cos(theta)
+    #y = PV_y + 0.1 * np.sin(theta)
+    #ax.plot(x, y, color='C0')
     # mathcing
     ax.legend()
     return fig, ax
