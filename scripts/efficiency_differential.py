@@ -63,13 +63,14 @@ def efficiencyVsVariable(num, den, bins, xlabel, outName, title=None, tick_posit
     ax.set_xlabel(xlabel)
     ax.set_ylabel("Efficiency [%]")
     ax.set_ylim(0, 1)
-    ax.text(x=0.95, y=0.95, s="Matched Entries %d"%(len(num)), transform=ax.transAxes, horizontalalignment='right')
-    print(tick_positions)
+    ax.text(x=0.95, y=0.94, s="Matched Entries %d"%(len(num)), transform=ax.transAxes, horizontalalignment='right')
+    ax.text(x=0.95, y=0.89, s=title, transform=ax.transAxes, horizontalalignment='right')
+    #print(tick_positions)
     if tick_positions is not None:
-        print("tick_positions customized")
+        #print("tick_positions customized")
         ax.set_xticks(tick_positions, tick_labels,  rotation=90)
-    if title is not None:
-        ax.set_title(title)
+    #if title is not None:
+    hep.cms.label()
     fig.savefig(outName, bbox_inches='tight')
     print("Saved %s"%outName)
     return
