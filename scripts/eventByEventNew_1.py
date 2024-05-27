@@ -8,7 +8,7 @@ import random
 from scipy.optimize import linear_sum_assignment
 import mplhep as hep
 hep.style.use("CMS")
-from BTV.scripts.tuplizer.utilsForScript import distance_3d, getPdgMask
+from tuplizer.utilsForScript import distance_3d, getPdgMask
 from helpers import getTreeAndBranches, criterion0, criterion1, eventDisplay, getTreeAndBranches
 
 
@@ -81,6 +81,7 @@ def main(nEvents, criterion, threshold):
         GenPart_vy                  = branches["GenPart_vy"][ev]
         GenPart_vz                  = branches["GenPart_vz"][ev]
         ProbeTracks_matchedToSV     = branches["ProbeTracks_matchedToSV"][ev]
+        ProbeTracks_pt              = branches["ProbeTracks_pt"][ev]
 
         # filter the gen part of interest
         pdgMask = getPdgMask(GenPart_pdgId=GenPart_pdgId)
@@ -178,11 +179,11 @@ def main(nEvents, criterion, threshold):
         else:
             df_event = criterion0(distances=distances, distances_normalized=distances_normalized, df_event=df_event, display=True,
                                   SVs=SVs, SV_chi2=SV_chi2, PV_x=PV_x, PV_y=PV_y, GenPart_genPartIdxMother=GenPart_genPartIdxMother, GenPart_vx=GenPart_vx,
-                                  tracksCounters=tracksCounters,
+                                  tracksCounters=tracksCounters, ProbeTracks_matchedToSV=ProbeTracks_matchedToSV, ProbeTracks_pt=ProbeTracks_pt,
                                   GenPart_vy=GenPart_vy, col_mask=col_mask, row_mask=row_mask)
 
-        if len(df_event)!=0:
-            df = pd.concat((df, df_event))
+        #if len(df_event)!=0:
+        #    df = pd.concat((df, df_event))
 
     return 
 
