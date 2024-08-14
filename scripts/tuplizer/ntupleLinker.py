@@ -5,9 +5,15 @@ import numpy as np
 from utilsForScript import distance_3d, getPdgMask
 import sys
 def main(fileName, fileNumber, prova):
-    #prova = 0
+    # inefficiencies
+    # red = events where reco SV have no Tracks
+    # blue = events where reco SV have no Tracks with genMathcing
+    # green = events where reco SV have no Tracks genMatched to daughters of one of the listed hadrons
+    # red = 0
+    # blue = 0
+    # green = 0
     if prova==1:
-        file = ROOT.TFile("/pnfs/psi.ch/cms/trivcat/store/user/gcelotto/btv_ntuples/TTToHadronic2024May06Tuple/TTToH_%d.root"%fileNumber, "RECREATE")    
+        file = ROOT.TFile("/pnfs/psi.ch/cms/trivcat/store/user/gcelotto/btv_ntuples/TTToHadronic2024Jul10Tuple/TTToH_%d.root"%fileNumber, "RECREATE")    
         print("/pnfs/psi.ch/cms/trivcat/store/user/gcelotto/btv_ntuples/TTToHadronic2024May06Tuple/TTToH_%d.root"%fileNumber)
     elif prova==0:
         file = ROOT.TFile("/scratch/TTToH_%d.root"%fileNumber, "RECREATE")
@@ -32,10 +38,10 @@ def main(fileName, fileNumber, prova):
     vy                  = array('d', [0])
     vz                  = array('d', [0])
     displacement        = array('d', [0])            
-    nGenTracks          = array('l', [ 0 ] )
+    nGenTracks          = array('l', [0] )
     genTracks_pt        = array('d', [0.]*15)
-    genTracks_eta        = array('d', [0.]*15)
-    genTracks_phi        = array('d', [0.]*15)
+    genTracks_eta       = array('d', [0.]*15)
+    genTracks_phi       = array('d', [0.]*15)
     genTracks_pdgId     = array('d', [0.]*15)     
     nRecoTracks         = array('l', [ 0 ] )
     recoTracks_pt       = array('d', [0.]*30)
@@ -45,7 +51,7 @@ def main(fileName, fileNumber, prova):
 
     #probeTracksFromSV = array('d', [0])                
 
-    tree.Branch("event",              event,                "event/I")                     
+    tree.Branch("event",            event,            "event/I")                     
     tree.Branch("nSV",              nSV,                "nSV/I")  
     tree.Branch("pdgID",            pdgID,              "pdgID/I")    
     tree.Branch("pt",               pt,                 "pt/D")
@@ -73,45 +79,71 @@ def main(fileName, fileNumber, prova):
     f = uproot.open(fileName)
     tree_ = f['Events']
     branches = tree_.arrays()
-    maxEntries = 300 if prova == 1 else tree_.num_entries
-    maxEntries = 1000 if maxEntries>10000 else maxEntries
+    maxEntries = 500 if prova == 1 else tree_.num_entries
+    maxEntries = 500 if maxEntries>10000 else maxEntries
 
     print("%d entries "%maxEntries)
     for ev in range(maxEntries):
         if ev%100==0:
             print(100 * ev/maxEntries)
-        #input("\n\n next ev %d"%ev)
-        #print("event", ev)
+        input("\n\nNext\n\n")
+        if ev == 3:
+            sys.exit("Exit")
+        # input("\n\n next ev %d"%ev)
+        # print("event", ev)
         # info extrcted per event
-        nSV_                         = branches["nSV"][ev]
-        nGenPart_                    = branches["nGenPart"][ev]
-        GenPart_genPartIdxMother_    = branches["GenPart_genPartIdxMother"][ev]
-        GenPart_pdgId_               = branches["GenPart_pdgId"][ev]
-        GenPart_pt_                  = branches["GenPart_pt"][ev]
-        GenPart_eta_                 = branches["GenPart_eta"][ev]
-        GenPart_phi_                 = branches["GenPart_phi"][ev]
-        PV_x_                        = branches["PV_x"][ev]
-        PV_y_                        = branches["PV_y"][ev]
-        PV_z_                        = branches["PV_z"][ev]
+        nSV_                        = branches["nSV"][ev]
+        nGenPart_                   = branches["nGenPart"][ev]
+        GenPart_genPartIdxMother_   = branches["GenPart_genPartIdxMother"][ev]
+        GenPart_pdgId_              = branches["GenPart_pdgId"][ev]
+        GenPart_pt_                 = branches["GenPart_pt"][ev]
+        GenPart_eta_                = branches["GenPart_eta"][ev]
+        GenPart_phi_                = branches["GenPart_phi"][ev]
+        GenPart_status_             = branches["GenPart_status"][ev]
+        GenPart_charge              = branches["GenPart_charge"][ev]
+        PV_x_                       = branches["PV_x"][ev]
+        PV_y_                       = branches["PV_y"][ev]
+        PV_z_                       = branches["PV_z"][ev]
         SV_x                        = branches["SV_x"][ev]
         SV_y                        = branches["SV_y"][ev]
         SV_z                        = branches["SV_z"][ev]
-        GenPart_vx_                  = branches["GenPart_vx"][ev]
-        GenPart_vy_                  = branches["GenPart_vy"][ev]
-        GenPart_vz_                  = branches["GenPart_vz"][ev]
-        ProbeTracks_matchedToSV_     = branches["ProbeTracks_matchedToSV"][ev]
-        ProbeTracks_pt_              = branches["ProbeTracks_pt"][ev]
-        ProbeTracks_eta_             = branches["ProbeTracks_eta"][ev]
-        ProbeTracks_phi_             = branches["ProbeTracks_phi"][ev]
+        GenPart_vx_                 = branches["GenPart_vx"][ev]
+        GenPart_vy_                 = branches["GenPart_vy"][ev]
+        GenPart_vz_                 = branches["GenPart_vz"][ev]
+        ProbeTracks_matchedToSV_    = branches["ProbeTracks_matchedToSV"][ev]
+        ProbeTracks_pt_             = branches["ProbeTracks_pt"][ev]
+        ProbeTracks_eta_            = branches["ProbeTracks_eta"][ev]
+        ProbeTracks_phi_            = branches["ProbeTracks_phi"][ev]
         ProbeTracks_genPartIdx      = branches["ProbeTracks_genPartIdx"][ev]
 
-        # SVs anf genVertex
+        # SVs as reconstructed by IVF
         SVs = np.array([(x, y, z) for x, y, z in zip(SV_x, SV_y, SV_z)])
 
+# ***********************************************************************
+#                      Gen Vertices definition                         
+# ***********************************************************************
+        
         pdgMask = getPdgMask(GenPart_pdgId=GenPart_pdgId_)   # list of pdgId consider as genVertices
         etaMask = abs(GenPart_eta_)<params['max_abs_eta']  # limit the genvertices to GenHadrons within tracker acceptance
         ptMask = GenPart_pt_>params['min_pt_mother']          # require pT of GenHadrons larger than 10 GeV
-        mesons = np.arange(nGenPart_)[pdgMask & etaMask & ptMask ] #index of the meosns in nGenPart
+        # look for genparticles that has the meson as mother and stable
+        # loop in mesons taken so far
+        # for every genparticles check all the mothers if there is the particular meson
+        # count the daughters
+        # 
+        mesons = np.arange(nGenPart_)[(pdgMask) & (etaMask) & (ptMask) ] #index of the meosns in nGenPart
+        nStableDaughters = np.zeros(len(mesons))
+        for idx, mesIdx in enumerate(mesons):
+            for genPartIdx in np.arange(nGenPart_)[(GenPart_status_==1) & (abs(GenPart_charge)==1) & (GenPart_pt_>1) & (abs(GenPart_eta_)<2.5)]:
+                gp = genPartIdx
+                while (GenPart_genPartIdxMother_[gp]!=-1):
+                    if (GenPart_genPartIdxMother_[gp]==mesIdx):
+                        nStableDaughters[idx]=nStableDaughters[idx]+1
+                        #break the while and look for the next genPart
+                        break
+
+                    gp = GenPart_genPartIdxMother_[gp]
+        mesons = mesons[nStableDaughters>1]
         oneDaughter = []      # one index of a daughter of the meson aligned
         for mes in mesons:
             foundDaughter = -1
@@ -126,32 +158,47 @@ def main(fileName, fileNumber, prova):
         assert len(mesons)==len(oneDaughter)
         
         genVertices = np.array([(x, y, z) for x, y, z in zip(GenPart_vx_[oneDaughter], GenPart_vy_[oneDaughter], GenPart_vz_[oneDaughter])])
-        allDaughters = []      # one index of a daughter of the meson aligned
-        for mes in mesons:
-            for gp in range(nGenPart_):
-                if (GenPart_genPartIdxMother_[gp] == mes):
-                    allDaughters.append(gp)
 
+        #allDaughters = []      # one index of a daughter of the meson aligned
+        #for mes in mesons:
+        #    for gp in range(nGenPart_):
+        #        if (GenPart_genPartIdxMother_[gp] == mes):
+        #            allDaughters.append(gp)
 
+# ***********************************************************************
+#                            Mathcing                         
+# ***********************************************************************
         distances = np.array([[distance_3d(sv, (vx, vy, vz)) for vx, vy, vz in genVertices] for sv in SVs ])
+        print(distances)
+        
         distances_filled = distances.copy()
         matchingKey ={}
         while (np.any(distances_filled < 997)):
+            print(distances_filled)
             recoIdx, genIdx = np.unravel_index(np.argmin(distances_filled, axis=None), distances.shape)
-            #print(recoIdx, genIdx, " possibly matched")
+            print(recoIdx, genIdx, " possibly matched")
             recoIdx = int(recoIdx)
             genIdx = int(genIdx)
 
             #tracks from sv
-            recoTracksMask = (ProbeTracks_matchedToSV_==recoIdx)
+            recoTracksMask = (ProbeTracks_matchedToSV_==recoIdx) & (ProbeTracks_pt_>1) & (abs(ProbeTracks_eta_)<2.5)
 
+            # 1. red inefficiency 
+#            if len(recoTracksMask)==0:
+#                red = red + 1
+
+            # 2. blue inefficiency
+ #           if len((recoTracksMask) & (ProbeTracks_genPartIdx>-1))==0:
+ #               blue = blue + 1
+            
             #tracks from gv
             #first mother, grandmother, grandGrandMother
             genTracksMask = (GenPart_genPartIdxMother_==GenPart_genPartIdxMother_[oneDaughter[genIdx]])
-            genTracksMask = genTracksMask | (GenPart_genPartIdxMother_==GenPart_genPartIdxMother_[GenPart_genPartIdxMother_[oneDaughter[genIdx]]])
-            genTracksMask = genTracksMask | (GenPart_genPartIdxMother_==GenPart_genPartIdxMother_[GenPart_genPartIdxMother_[GenPart_genPartIdxMother_[oneDaughter[genIdx]]]])
+            genTracksMask = (genTracksMask) | (GenPart_genPartIdxMother_==GenPart_genPartIdxMother_[GenPart_genPartIdxMother_[oneDaughter[genIdx]]])
+            genTracksMask = (genTracksMask) | (GenPart_genPartIdxMother_==GenPart_genPartIdxMother_[GenPart_genPartIdxMother_[GenPart_genPartIdxMother_[oneDaughter[genIdx]]]])
             #genTracksMask = genTracksMask | (GenPart_genPartIdxMother_==GenPart_genPartIdxMother_[GenPart_genPartIdxMother_[GenPart_genPartIdxMother_[GenPart_genPartIdxMother_[oneDaughter[genIdx]]]]])
             #check if genTracks linked to recoTracks are in genVertex
+            
             commonTracks = np.sum(np.in1d(ProbeTracks_genPartIdx[recoTracksMask], np.arange(nGenPart_)[genTracksMask]))
             if commonTracks>=1:
                 distances_filled[recoIdx, :]=[998]*distances_filled.shape[1]
@@ -188,8 +235,6 @@ def main(fileName, fileNumber, prova):
         #        distances_filled[recoIdx, :]=[998]*distances_filled.shape[1]
         #    else:
         #        distances_filled[recoIdx, genIdx]=998
-
-                    
 
 
 
@@ -249,10 +294,12 @@ def main(fileName, fileNumber, prova):
             tree.Fill()
     tree.Write()
     file.Close()
+    #print("red", red)
+    #print("blue", blue)
 
 
 if __name__ == "__main__":
-    fileName = sys.argv[1] if len(sys.argv)>1 else '/pnfs/psi.ch/cms/trivcat/store/user/gcelotto/btv_ntuples/TTToHadronic2024May06/TTToHadronic_TuneCP5_13TeV-powheg-pythia8/crab_TTToHadronic/240506_153739/0000/TTToHadronic_Run2_mc_2024May06_1.root'
-    fileNumber = int(sys.argv[2]) if len(sys.argv)>1 else 1
+    fileName = sys.argv[1] if len(sys.argv)>1 else '/pnfs/psi.ch/cms/trivcat/store/user/gcelotto/btv_ntuples/TTToHadronic2024Jul10/TTToHadronic_TuneCP5_13TeV-powheg-pythia8/crab_TTToHadronic/240710_125611/0000/TTToHadronic_Run2_mc_2024Jul10_100.root'
+    fileNumber = int(sys.argv[2]) if len(sys.argv)>1 else 100
     prova = 0 if len(sys.argv)>1 else 1
     main(fileName, fileNumber, prova)
