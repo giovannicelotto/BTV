@@ -16,18 +16,18 @@ def getPdgMask(GenPart_pdgId):
                                                             #441 eta_c no displacement
                                                         
                                                              
+                                                            3112,   #sigma-
                                                             3122,   #lambda
                                                             3222,   #sigma+
                                                             3212,   #sigma0
-                                                            3112,   #sigma-
-                                                            3322,   #csi0
                                                             3312,   #csi-
+                                                            3322,   #csi0
                                                             3334,   #omega-
 
                                                             4122,   #lambda_c  
-                                                            4222,   #sigma_c++
-                                                            4212,   #sigma_c+
-                                                            4112,   #sigma_c0
+                                                            #4222,   #sigma_c++     # too short
+                                                            #4212,   #sigma_c+      # too short
+                                                            #4112,   #sigma_c0      # too short
                                                             4232,   # csi_c+
                                                             4132,   # csi'c0
                                                             4332,   # omega^0_c
@@ -37,9 +37,9 @@ def getPdgMask(GenPart_pdgId):
                                                             4444,   #omega^++_ccc
 
                                                             5122,   #lambda_b0
-                                                            5112,   #sigma_b-
-                                                            5212,   #sigma_b0
-                                                            5222,   #sigma_b+
+                                                            #5112,   #sigma_b-  # too short  
+                                                            #5212,   #sigma_b0  # too short
+                                                            #5222,   #sigma_b+  # too short
                                                             5132,   #xi_b-
                                                             5232,   #xi_b0
                                                             5332,   #omega_b-
