@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import mplhep as hep
 hep.style.use("CMS")
 import sys
-from BTV.scripts.plotScripts.criterion1_differential import getSuffix
+from BTV.scripts.plotScripts.old.criterion1_differential import getSuffix
 eps = 0.000001
 def map_to_groups(value):
     if abs(value) in [511, 521, 531, 541]:

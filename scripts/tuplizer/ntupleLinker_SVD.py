@@ -3,26 +3,22 @@ from array import array
 import uproot
 import numpy as np
 from helpers.utilsForScript import distance_3d, getPdgMask
-from helpers.getGV import getMesons_old
+from helpers.getGV import getMesons
 from helpers.getOneDaughter import getOneDaughter
-from helpers.matchingEvent import matchingEvent_old
-import sys
+from helpers.matchingEvent import matchingEvent
+from helpers.getParams import getParams
+import argparse
+
+
 def getSecondMatching():
     secondMatching = False
     return secondMatching
 secondMatching = getSecondMatching()
 
 
-def getParams():
-    params = {
-            'max_abs_eta': 2.5,
-            'min_pt_mother': 10,
-        }
-    return params
-
-def main(fileName, fileNumber, prova):
+def main(fileName, fileNumber, prova, maxEntries):
     if prova==1:
-        fN = "/work/gcelotto/BTV/scripts/tuplizer/TTToH_old_%d.root"%fileNumber
+        fN = "/work/gcelotto/BTV/scripts/tuplizer/TTToH_selPart_%d.root"%fileNumber
         file = ROOT.TFile(fN, "RECREATE")    
         print(fN)
     elif prova==0:
@@ -36,7 +32,7 @@ def main(fileName, fileNumber, prova):
     event = array('l', [0])
     nSV = array('l', [0])
     pdgID               = array('l', [0])    
-    motherPdgID               = array('l', [0])    
+    motherPdgID         = array('l', [0])    
     pt                  = array('d', [0])
     eta                 = array('d', [0])    
     phi                 = array('d', [0])    
@@ -45,19 +41,19 @@ def main(fileName, fileNumber, prova):
     vz                  = array('d', [0])
     SV_dlenSig          = array('d', [0])
     displacement        = array('d', [0])            
-    promptStatus        = array('l', [0])   
         # status of D mesons and Charmed Baryons: 
     # 0 prompt (from W)
     # 1,(2),[3],... if B [grand(grand)]mother mother of D
     # -2 neither from W nor from B (from hard scattering e.g.)
     # -1 for all the particles different from D mesons and Charmed Baryons
-    decayStatus        = array('l', [0])   
+    promptStatus        = array('l', [0])   
         # status of B mesons and Bottom baryons: 
     # -1 not B nor Bottom baryons
     # 0 does not have D below in the chain
     # 1 mother of D or Charmed baryons
     # 2 grandmother of D or Charmed baryons
     # ...
+    decayStatus        = array('l', [0])   
 
 
     B_eta               = array('d', [0])   # eta of the b meson if the D comes from a B.
@@ -72,13 +68,13 @@ def main(fileName, fileNumber, prova):
     recoTracks_pt       = array('d', [0.]*30)
     recoTracks_eta      = array('d', [0.]*30)                
     recoTracks_phi      = array('d', [0.]*30)                
+    recoTracks_pdgID    = array('l', [0]*30)
     distance            = array('d', [0])        
     delta_x            = array('d', [0])        
     delta_y            = array('d', [0])        
     delta_z            = array('d', [0])      
     
-
-    #probeTracksFromSV = array('d', [0])                
+             
 
     tree.Branch("event",            event,            "event/I")                     
     tree.Branch("nSV",              nSV,                "nSV/I")  
@@ -106,24 +102,21 @@ def main(fileName, fileNumber, prova):
     tree.Branch("recoTracks_pt",     recoTracks_pt,       "recoTracks_pt[nRecoTracks]/D")            
     tree.Branch("recoTracks_eta",  recoTracks_eta,    "recoTracks_eta[nRecoTracks]/D")                
     tree.Branch("recoTracks_phi",  recoTracks_phi,    "recoTracks_phi[nRecoTracks]/D")                
+    tree.Branch("recoTracks_pdgID",  recoTracks_pdgID,    "recoTracks_pdgID[nRecoTracks]/I")                
     tree.Branch("distance",         distance,           "distance/D")        
     tree.Branch("delta_x",         delta_x,           "delta_x/D")        
     tree.Branch("delta_y",         delta_y,           "delta_y/D")        
     tree.Branch("delta_z",         delta_z,           "delta_z/D")        
     tree.Branch("SV_dlenSig",         SV_dlenSig,           "SV_dlenSig/D")        
 
-    #tree.Branch("probeTracksFromSV",probeTracksFromSV,  "probeTracksFromSV/D")    
 
 
     f = uproot.open(fileName)
     tree_ = f['Events']
     branches = tree_.arrays()
-    maxEntries = tree_.num_entries if prova == 1 else tree_.num_entries
-    maxEntries = 500 if maxEntries>10000 else maxEntries
-    #maxEntries =100
 
     print("%d entries "%maxEntries)
-    for ev in range(maxEntries):
+    for ev in range(15, maxEntries):
         if ev%100==0:
             print(100 * ev/maxEntries)
         #input("\n\nNext\n\n")
@@ -150,11 +143,14 @@ def main(fileName, fileNumber, prova):
         GenPart_vx_                 = branches["GenPart_vx"][ev]
         GenPart_vy_                 = branches["GenPart_vy"][ev]
         GenPart_vz_                 = branches["GenPart_vz"][ev]
-        ProbeTracks_matchedToSV_    = branches["ProbeTracks_matchedToSV"][ev]
-        ProbeTracks_pt_             = branches["ProbeTracks_pt"][ev]
-        ProbeTracks_eta_            = branches["ProbeTracks_eta"][ev]
-        ProbeTracks_phi_            = branches["ProbeTracks_phi"][ev]
-        ProbeTracks_genPartIdx      = branches["ProbeTracks_genPartIdx"][ev]
+
+        nsvDaughters                = branches["nsvDaughters"][ev]
+        svDaughters_svIdx           = branches["svDaughters_svIdx"][ev]
+        svDaughters_eta             = branches["svDaughters_eta"][ev]
+        svDaughters_pt              = branches["svDaughters_pt"][ev]
+        svDaughters_phi             = branches["svDaughters_phi"][ev]
+        svDaughters_genPartIdx      = branches["svDaughters_genPartIdx"][ev]
+
         SV_dlenSig_                 = branches["SV_dlenSig"][ev]
 
         # SVs as reconstructed by IVF
@@ -164,32 +160,35 @@ def main(fileName, fileNumber, prova):
 #                      Gen Vertices definition                         
 # ***********************************************************************
         
-        mesons = getMesons_old(params, GenPart_pdgId_, GenPart_eta_, GenPart_pt_, nGenPart_, GenPart_status_, GenPart_charge, GenPart_genPartIdxMother_)     
+        mesons, mesonsDaughters = getMesons(params, GenPart_pdgId_, GenPart_eta_, GenPart_pt_, nGenPart_, GenPart_status_, GenPart_charge, GenPart_genPartIdxMother_)     
+
         oneDaughter = getOneDaughter(mesons, GenPart_genPartIdxMother_, nGenPart_)
         genVertices = np.array([(x, y, z) for x, y, z in zip(GenPart_vx_[oneDaughter], GenPart_vy_[oneDaughter], GenPart_vz_[oneDaughter])])
 
-        #allDaughters = []      # one index of a daughter of the meson aligned
-        #for mes in mesons:
-        #    for gp in range(nGenPart_):
-        #        if (GenPart_genPartIdxMother_[gp] == mes):
-        #            allDaughters.append(gp)
-
 # ***********************************************************************
-#                            Mathcing                         
+#                            Matching                         
 # ***********************************************************************
         distances = np.array([[distance_3d(sv, (vx, vy, vz)) for vx, vy, vz in genVertices] for sv in SVs ])
         #if SV_dlenSig_cut is not None:
         #    for recoIdx in range(nSV_):
         #        if SV_dlenSig_[recoIdx]<SV_dlenSig_cut:
         #            distances[recoIdx, :]=[998]*distances.shape[1]
-        matchingKey = matchingEvent_old(distances, ProbeTracks_matchedToSV_, ProbeTracks_pt_, ProbeTracks_eta_, GenPart_genPartIdxMother_, oneDaughter, ProbeTracks_genPartIdx, nGenPart_)
+        matchingKey = matchingEvent(distances, svDaughters_svIdx, svDaughters_pt, svDaughters_eta, GenPart_genPartIdxMother_, oneDaughter, svDaughters_genPartIdx, nGenPart_, GenPart_pdgId_)
         #input("Next")
         #print(matchingKey)
          
 
         for genIdx, mes in enumerate(mesons):        
-            notNeutrinoMask = (abs(GenPart_pdgId_)!=12) & (abs(GenPart_pdgId_)!=14) & (abs(GenPart_pdgId_)!=16)    
-            genDaughtersMask = (GenPart_genPartIdxMother_ == mes) &  (notNeutrinoMask) & (abs(GenPart_eta_)<2.5) & (GenPart_pt_>0.8)
+            #notNeutrinoMask = (abs(GenPart_pdgId_)!=12) & (abs(GenPart_pdgId_)!=14) & (abs(GenPart_pdgId_)!=16)    
+            genDaughtersMask = np.isin(np.arange(nGenPart_), mesonsDaughters[genIdx])
+            
+            
+            # No here need to change. Retrieve the information from the matching about the daughters!
+            # same daughters used for genVertex definition
+
+
+
+
             genTracks_pt_ = GenPart_pt_[genDaughtersMask]
             genTracks_eta_ = GenPart_eta_[genDaughtersMask]
             genTracks_phi_ = GenPart_phi_[genDaughtersMask]
@@ -200,17 +199,20 @@ def main(fileName, fileNumber, prova):
                 #print(GenPart_pdgId_[genDaughtersMask])
             #print(genTracks_pt_)
             if genIdx in matchingKey:
-                recoTracksMask = (abs(ProbeTracks_eta_)<2.5) & (ProbeTracks_matchedToSV_==matchingKey[genIdx]) & (ProbeTracks_pt_>0.8)
+                recoTracksMask = (abs(svDaughters_eta)<2.5) & (svDaughters_svIdx==matchingKey[genIdx]) & (svDaughters_pt>0.8)
                 nRecoTracks[0]=np.sum(recoTracksMask)
-                recoTracks_pt_ = ProbeTracks_pt_[recoTracksMask]
-                recoTracks_eta_ = ProbeTracks_eta_[recoTracksMask]
-                recoTracks_phi_ = ProbeTracks_phi_[recoTracksMask]
+                recoTracks_pt_ = svDaughters_pt[recoTracksMask]
+                recoTracks_eta_ = svDaughters_eta[recoTracksMask]
+                recoTracks_phi_ = svDaughters_phi[recoTracksMask]
+                recoTracks_pdgID_ = GenPart_pdgId_[svDaughters_genPartIdx[recoTracksMask]]
+                recoTracks_pdgID_ = np.where(svDaughters_genPartIdx[recoTracksMask]>-1, recoTracks_pdgID_, -1)
             else:
                 nRecoTracks[0]=0
             for i in range(nRecoTracks[0]):
                 recoTracks_pt[i] = recoTracks_pt_[i]
                 recoTracks_eta[i] = recoTracks_eta_[i]
                 recoTracks_phi[i] = recoTracks_phi_[i]
+                recoTracks_pdgID[i] = recoTracks_pdgID_[i]
 
 
             if genIdx in matchingKey:
@@ -307,8 +309,11 @@ def main(fileName, fileNumber, prova):
 
 
 if __name__ == "__main__":
-    fileName = sys.argv[1] if len(sys.argv)>1 else '/work/gcelotto/BTV/CMSSW_12_4_8/src/PhysicsTools/BParkingNano/test/TTToHadronic_Run2_mc_124X.root'
-    fileNumber = int(sys.argv[2]) if len(sys.argv)>1 else 100
-    prova = 0 if len(sys.argv)>1 else 1
-    #SV_dlenSig_cut = int(sys.argv[3]) if len(sys.argv)>2 else None
-    main(fileName, fileNumber, prova)
+    parser = argparse.ArgumentParser(description="Script.")
+    #### Define arguments
+    parser.add_argument("-fileName", "--fileName", type=str, default="/work/gcelotto/BTV/CMSSW_12_4_8/src/PhysicsTools/BParkingNano/test/TTToHadronic_Run2_mc_124X.root")
+    parser.add_argument("-fileNumber", "--fileNumber", type=int, default=100)
+    parser.add_argument("-p", "--prova", type=int, help="prova True (1) False (0)", default=1)
+    parser.add_argument("-mE", "--maxEntries", type=int, help="maxEntries per File", default=500)
+    args = parser.parse_args()
+    main(args.fileName, args.fileNumber, args.prova, args.maxEntries)

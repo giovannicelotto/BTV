@@ -7,28 +7,33 @@ import glob
 import os
 import mplhep as hep
 hep.style.use("CMS")
-filePath = "/pnfs/psi.ch/cms/trivcat/store/user/gcelotto/btv_ntuples/TTToHadronic2024May06Tuple"
-fileNames = glob.glob(filePath + "/*.root", recursive=True)
+filePath = "/pnfs/psi.ch/cms/trivcat/store/user/gcelotto/btv_ntuples/TTToHadronic2024Jul23Tuple/tight/pt0p8"
+fileNames = glob.glob(filePath + "/*.root", recursive=True)[:10]
 def flatten(xss):
     return [x for xs in xss for x in xs]
-
-#%%
+# %%
 
 disp = []
 dist = []
+event = []
 for fileName in fileNames:
+    print("Opening ", fileName)
     file = uproot.open(fileName)
     tree=file['tree']
 
     branches = tree.arrays()
-    disp.append(branches["displacement"])
-    dist.append(branches["distance"])
+    print(branches)
+    #disp.append(branches["displacement"])
+    #dist.append(branches["distance"])
+    event.append(branches["event"])
+
 # %%
 print(disp)
 
 # %%
 disp=np.array(flatten(disp))
 dist=np.array(flatten(dist))
+event=np.array(flatten(event))
 
 # %%
 bins=np.linspace(0, .3, 31)
@@ -51,4 +56,8 @@ ax.set_xlabel("Distance of flight [cm]")
 fig.savefig("/t3home/gcelotto/BTV/plots/displacementM_vs_NM.png", bbox_inches='tight')
 
 
+# %%
+fig, ax = plt.subplots(1, 1)
+counts = ax.hist(event, bins=np.arange(500))[0]
+np.mean(counts)
 # %%

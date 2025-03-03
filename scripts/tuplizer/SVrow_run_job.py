@@ -10,12 +10,11 @@ secondMatching = getSecondMatching()
 def main(nFiles):
     # Define name of the process, folder for the files and xsections
     nanoPath="/pnfs/psi.ch/cms/trivcat/store/user/gcelotto/btv_ntuples/TTToHadronic2024Jul23/TTToHadronic_TuneCP5_13TeV-powheg-pythia8/crab_TTToHadronic/240723_073316/0000" # change here
-    #nanoPath="/pnfs/psi.ch/cms/trivcat/store/user/gcelotto/btv_ntuples/noCut"
-    #nanoPath="/pnfs/psi.ch/cms/trivcat/store/user/gcelotto/btv_ntuples/TTToHadronic2024Dec13/TTToHadronic_TuneCP5_13TeV-powheg-pythia8/crab_TTToHadronic/241213_085509/0000"
     if secondMatching:
-        flatPath="/pnfs/psi.ch/cms/trivcat/store/user/gcelotto/btv_ntuples/TTToHadronic2024Jul23Tuple/secondMatching/pt0p8" # change here
+        #flatPath="/pnfs/psi.ch/cms/trivcat/store/user/gcelotto/btv_ntuples/TTToHadronic2024Jul23Tuple/secondMatching/pt0p8" # change here
+        assert False
     else:
-        flatPath="/pnfs/psi.ch/cms/trivcat/store/user/gcelotto/btv_ntuples/flattuple/GVrow" # change here
+        flatPath="/pnfs/psi.ch/cms/trivcat/store/user/gcelotto/btv_ntuples/flattuple/SVrow" 
 
     nanoFileNames = glob.glob(nanoPath+"/**/*.root", recursive=True)
     nanoFileNames = sorted(nanoFileNames, key=lambda x: int(re.search(r'_(\d+)\.root$', x).group(1)))
@@ -46,12 +45,10 @@ def main(nFiles):
         print('nanoFile name', nanoFileName)
         print('fileNumber', fileNumber)
         print('flatPath', flatPath)
-        subprocess.run(['sbatch', '-J', "TTToH"+"%d"%random.randint(1, 20), '/work/gcelotto/BTV/scripts/tuplizer/job.sh', nanoFileName, fileNumber, flatPath])
+        subprocess.run(['sbatch', '-J', "SVrow_TTToH"+"%d"%random.randint(1, 20), '/work/gcelotto/BTV/scripts/tuplizer/SVrow_job.sh', nanoFileName, fileNumber, flatPath])
         doneFiles = doneFiles+1
     return 
 
 if __name__ == "__main__":
     nFiles      = int(sys.argv[1]) if len(sys.argv) > 1 else -1
-    #SV_dlenSig_cut = int(sys.argv[2]) if len(sys.argv) > 2 else None
     main(nFiles)
-    

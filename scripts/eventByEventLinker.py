@@ -10,6 +10,8 @@ import mplhep as hep
 hep.style.use("CMS")
 from tuplizer.utilsForScript import distance_3d, getPdgMask
 from helpers import getTreeAndBranches, criterion0, criterion1, eventDisplay, getTreeAndBranches
+sys.path.append("/t3home/gcelotto/BTV/scripts/tuplizer")
+from ntupleLinker import getMesons, getParams, getOneDaughter, matchingEvent
 
 
 def map_to_groups_letter(value):
@@ -31,9 +33,9 @@ def map_to_groups_letter(value):
 
 def main():
 
-    tree, branches = getTreeAndBranches(fileName = "/t3home/gcelotto/BTV/CMSSW_12_4_8/src/PhysicsTools/BParkingNano/test/TTToHadronic_2_Run2_mc_124X.root")
+    tree, branches = getTreeAndBranches(fileName = "/pnfs/psi.ch/cms/trivcat/store/user/gcelotto/btv_ntuples/TTToHadronic2024Jul23/TTToHadronic_TuneCP5_13TeV-powheg-pythia8/crab_TTToHadronic/240723_073316/0000/TTToHadronic_Run2_mc_2024Jul23_100.root")
     nEvents = tree.num_entries
-
+    params = getParams()
     for ev in np.arange(nEvents):
         input("Next ev %d"%ev)
         nSV                         = branches["nSV"][ev]
@@ -55,72 +57,35 @@ def main():
         GenPart_vz                  = branches["GenPart_vz"][ev]
         ProbeTracks_matchedToSV     = branches["ProbeTracks_matchedToSV"][ev]
         ProbeTracks_pt              = branches["ProbeTracks_pt"][ev]
+        ProbeTracks_eta             = branches["ProbeTracks_eta"][ev]
         ProbeTracks_genPartIdx      = branches["ProbeTracks_genPartIdx"][ev]
+        GenPart_pdgId               = branches["GenPart_pdgId"][ev]
+        GenPart_genPartIdxMother    = branches["GenPart_genPartIdxMother"][ev]            
+        GenPart_charge              = branches["GenPart_charge"][ev]
+        GenPart_status              = branches["GenPart_status"][ev]
 
         SVs = np.array([(x, y, z) for x, y, z in zip(SV_x, SV_y, SV_z)])
-
-        pdgMask = getPdgMask(GenPart_pdgId=GenPart_pdgId)
-        etaMask = abs(GenPart_eta)<2.5
-        ptMask = GenPart_pt>10
-        mesons = np.arange(nGenPart)[pdgMask & etaMask & ptMask]
-
-
-        oneDaughter = []      # one index of a daughter of the meson aligned
-        for mes in mesons:
-            foundDaughter = -1
-            for gp in range(nGenPart):
-                if (GenPart_genPartIdxMother[gp] == mes):
-                    oneDaughter.append(gp)
-                    foundDaughter=gp
-                    # fill one daughter per meson
-                    break
-            if foundDaughter==-1:
-                oneDaughter.append(-1)
-        assert len(mesons)==len(oneDaughter)
-
-        genVertices = np.array([(x, y, z) for x, y, z in zip(GenPart_vx[oneDaughter], GenPart_vy[oneDaughter], GenPart_vz[oneDaughter])])
-        allDaughters = []      # one index of a daughter of the meson aligned
-        for mes in mesons:
-            for gp in range(nGenPart):
-                if (GenPart_genPartIdxMother[gp] == mes):
-                    allDaughters.append(gp)
-
-
-        distances = np.array([[distance_3d(sv, (vx, vy, vz)) for vx, vy, vz in genVertices] for sv in SVs ])
-        distances_filled = distances.copy()
-        matchingKey ={}
-        while (np.any(distances_filled < 997)):
-            recoIdx, genIdx = np.unravel_index(np.argmin(distances_filled, axis=None), distances.shape)
-            #print(recoIdx, genIdx, " possibly matched")
-            recoIdx = int(recoIdx)
-            genIdx = int(genIdx)
-
-            #tracks from sv
-            recoTracksMask = (ProbeTracks_matchedToSV==recoIdx)
-
-            #tracks from gv
-            genTracksMask = (GenPart_genPartIdxMother==GenPart_genPartIdxMother[oneDaughter[genIdx]])
-            genTracksMask = genTracksMask | (GenPart_genPartIdxMother==GenPart_genPartIdxMother[GenPart_genPartIdxMother[oneDaughter[genIdx]]])
-            genTracksMask = genTracksMask | (GenPart_genPartIdxMother==GenPart_genPartIdxMother[GenPart_genPartIdxMother[GenPart_genPartIdxMother[oneDaughter[genIdx]]]])
-            #check if genTracks linked to recoTracks are in genVertex
-            commonTracks = np.sum(np.in1d(ProbeTracks_genPartIdx[recoTracksMask], np.arange(nGenPart)[genTracksMask]))
-            if commonTracks>=1:
-                distances_filled[recoIdx, :]=[998]*distances_filled.shape[1]
-                distances_filled[:, genIdx]=[998]*distances_filled.shape[0]
-                matchingKey[genIdx]=recoIdx
-            else:
-                distances_filled[recoIdx, genIdx]=998
+# ***********************************************************************
+#                      Gen Vertices definition                         
+# ***********************************************************************
         
+        mesons = getMesons(params, GenPart_pdgId, GenPart_eta, GenPart_pt, nGenPart, GenPart_status, GenPart_charge, GenPart_genPartIdxMother)     
+        oneDaughter = getOneDaughter(mesons, GenPart_genPartIdxMother, nGenPart)
+        genVertices = np.array([(x, y, z) for x, y, z in zip(GenPart_vx[oneDaughter], GenPart_vy[oneDaughter], GenPart_vz[oneDaughter])])
 
+# ***********************************************************************
+#                            Mathcing                         
+# ***********************************************************************
+        distances = np.array([[distance_3d(sv, (vx, vy, vz)) for vx, vy, vz in genVertices] for sv in SVs ])
+        matchingKey = matchingEvent(distances, ProbeTracks_matchedToSV, ProbeTracks_pt, ProbeTracks_eta, GenPart_genPartIdxMother, oneDaughter, ProbeTracks_genPartIdx, nGenPart)
+        
         # matching is done
-
         fig, ax = plt.subplots(1, 1)
         ax.scatter(GenPart_vx[oneDaughter], GenPart_vy[oneDaughter], label='GenVertices', s=80)
         for gp in range(len(oneDaughter)):
             ax.text(x=GenPart_vx[oneDaughter][gp], y=GenPart_vy[oneDaughter][gp], s=map_to_groups_letter(GenPart_pdgId[mesons][gp]), fontsize=18)
         print(len(oneDaughter))
         for dau in oneDaughter:
-
             if GenPart_genPartIdxMother[dau]!=-1: # the meson
                 x = [GenPart_vx[GenPart_genPartIdxMother[dau]], GenPart_vx[dau]]
                 y = [GenPart_vy[GenPart_genPartIdxMother[dau]], GenPart_vy[dau]]
@@ -128,7 +93,6 @@ def main():
                 ax.plot(x, y,linestyle='dotted',alpha=0.8, marker='none')
             else:
                 print("-1 found")
-
         #ax.text(x=1.02, y=0.45, s="x", ha='center', fontsize=14, transform=ax.transAxes)
         #ax.text(x=1.08, y=0.45, s="y", ha='center', fontsize=14, transform=ax.transAxes)
         #ax.text(x=1.14, y=0.45, s="z", ha='center', fontsize=14, transform=ax.transAxes)
@@ -155,7 +119,7 @@ def main():
         #        ax.text(x=1.14, y=y, s="%.2f"%(SVs[row][2]), ha='center', fontsize=14, transform=ax.transAxes)
         #        ax.text(x=1.20, y=y, s="%.2f"%(SV_chi2[row]), ha='center', fontsize=14, transform=ax.transAxes)
         #        y=y-0.05
-#
+
             ax.scatter(SVs[:,0], SVs[:,1], label='Reco SV', marker="s", color='C1', s=80)
         else:
             pass
@@ -176,8 +140,9 @@ def main():
         #ax.plot(x, y, color='C0')
         # mathcing
         ax.legend()
-        fig.savefig("/t3home/gcelotto/BTV/plots/newEventDisplay.png", bbox_inches='tight')
+        fig.savefig("/t3home/gcelotto/BTV/plots/newEventDisplay_ev%d.png"%ev, bbox_inches='tight')
         plt.close()
+        print(distances)
         print(matchingKey)
 
 
