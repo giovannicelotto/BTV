@@ -8,7 +8,7 @@ from helpers.getOneDaughter import getOneDaughter
 from helpers.matchingEvent import matchingEvent
 from helpers.getParams import getParams
 import argparse
-
+import sys
 
 def getSecondMatching():
     secondMatching = False
@@ -31,8 +31,8 @@ def main(fileName, fileNumber, prova, maxEntries):
 
     event = array('l', [0])
     nSV = array('l', [0])
-    pdgID               = array('l', [0])    
-    motherPdgID         = array('l', [0])    
+    pdgID               = array('i', [0])    
+    motherPdgID         = array('i', [0])    
     pt                  = array('d', [0])
     eta                 = array('d', [0])    
     phi                 = array('d', [0])    
@@ -58,17 +58,17 @@ def main(fileName, fileNumber, prova, maxEntries):
 
     B_eta               = array('d', [0])   # eta of the b meson if the D comes from a B.
     B_phi               = array('d', [0])   # phi of the b meson if the D comes from a B.
-    nGenTracks          = array('l', [0] )
-    genTracks_pt        = array('d', [0.]*15)
-    genTracks_eta       = array('d', [0.]*15)
-    genTracks_phi       = array('d', [0.]*15)
-    genTracks_pdgId     = array('d', [0.]*15)     
-    genTracks_charge    = array('l', [0]*15)     
-    nRecoTracks         = array('l', [ 0 ] )
+    nGenTracks          = array('i', [0] )
+    genTracks_pt        = array('d', [-999.]*15)
+    genTracks_eta       = array('d', [-999.]*15)
+    genTracks_phi       = array('d', [-999.]*15)
+    genTracks_pdgId     = array('d', [-999.]*15)     
+    genTracks_charge    = array('i', [-999]*15)     
+    nRecoTracks         = array('i', [ 0 ] )
     recoTracks_pt       = array('d', [0.]*30)
     recoTracks_eta      = array('d', [0.]*30)                
     recoTracks_phi      = array('d', [0.]*30)                
-    recoTracks_pdgID    = array('l', [0]*30)
+    recoTracks_pdgID    = array('i', [0]*30)
     distance            = array('d', [0])        
     delta_x            = array('d', [0])        
     delta_y            = array('d', [0])        
@@ -114,11 +114,13 @@ def main(fileName, fileNumber, prova, maxEntries):
     f = uproot.open(fileName)
     tree_ = f['Events']
     branches = tree_.arrays()
-
+    if maxEntries == -1:
+        maxEntries = tree_.num_entries
     print("%d entries "%maxEntries)
-    for ev in range(15, maxEntries):
-        if ev%100==0:
-            print(100 * ev/maxEntries)
+    for ev in range(maxEntries):
+        if ev % 100 == 0:
+            sys.stdout.write(f"\rProgress: {100 * ev / 1000:.2f}%")
+            sys.stdout.flush()
         #input("\n\nNext\n\n")
         #if ev == 20:
         #    sys.exit("Exit")
@@ -173,7 +175,7 @@ def main(fileName, fileNumber, prova, maxEntries):
         #    for recoIdx in range(nSV_):
         #        if SV_dlenSig_[recoIdx]<SV_dlenSig_cut:
         #            distances[recoIdx, :]=[998]*distances.shape[1]
-        matchingKey = matchingEvent(distances, svDaughters_svIdx, svDaughters_pt, svDaughters_eta, GenPart_genPartIdxMother_, oneDaughter, svDaughters_genPartIdx, nGenPart_, GenPart_pdgId_)
+        matchingKey = matchingEvent(distances, svDaughters_svIdx, svDaughters_pt, svDaughters_eta, GenPart_genPartIdxMother_, oneDaughter, svDaughters_genPartIdx, nGenPart_, GenPart_pdgId_, mesonsDaughters)
         #input("Next")
         #print(matchingKey)
          
@@ -299,13 +301,11 @@ def main(fileName, fileNumber, prova, maxEntries):
                 genTracks_eta[dau] = (genTracks_eta_[dau])
                 genTracks_phi[dau] = (genTracks_phi_[dau])
                 genTracks_pdgId[dau] = float(genTracks_pdgId_[dau])
-                genTracks_charge[dau] = int(genTracks_charge_[dau])
 
+                genTracks_charge[dau] = int(genTracks_charge_[dau])
             tree.Fill()
     tree.Write()
     file.Close()
-    #print("red", red)
-    #print("blue", blue)
 
 
 if __name__ == "__main__":

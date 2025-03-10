@@ -22,7 +22,7 @@ def getParams():
 
 def main(fileName, fileNumber, prova):
     if prova==1:
-        fN = "/work/gcelotto/BTV/scripts/tuplizer/TTToH_old_%d.root"%fileNumber
+        fN = "/work/gcelotto/BTV/scripts/tuplizer/TTToH_old_%d_change1.root"%fileNumber
         file = ROOT.TFile(fN, "RECREATE")    
         print(fN)
     elif prova==0:
@@ -156,6 +156,9 @@ def main(fileName, fileNumber, prova):
         ProbeTracks_phi_            = branches["ProbeTracks_phi"][ev]
         ProbeTracks_genPartIdx      = branches["ProbeTracks_genPartIdx"][ev]
         SV_dlenSig_                 = branches["SV_dlenSig"][ev]
+        svDaughters_svIdx           = branches["svDaughters_svIdx"][ev]
+        svDaughters_pt              = branches["svDaughters_pt"][ev]
+        svDaughters_eta             = branches["svDaughters_eta"][ev]
 
         # SVs as reconstructed by IVF
         SVs = np.array([(x, y, z) for x, y, z in zip(SV_x, SV_y, SV_z)])
@@ -182,7 +185,7 @@ def main(fileName, fileNumber, prova):
         #    for recoIdx in range(nSV_):
         #        if SV_dlenSig_[recoIdx]<SV_dlenSig_cut:
         #            distances[recoIdx, :]=[998]*distances.shape[1]
-        matchingKey = matchingEvent_old(distances, ProbeTracks_matchedToSV_, ProbeTracks_pt_, ProbeTracks_eta_, GenPart_genPartIdxMother_, oneDaughter, ProbeTracks_genPartIdx, nGenPart_)
+        matchingKey = matchingEvent_old(distances, svDaughters_svIdx, svDaughters_pt, svDaughters_eta, GenPart_genPartIdxMother_, oneDaughter, ProbeTracks_genPartIdx, nGenPart_)
         #input("Next")
         #print(matchingKey)
          

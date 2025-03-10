@@ -1,7 +1,7 @@
 import numpy as np
 from helpers.utilsForScript import getPdgMask
 secondMatching = False
-def matchingEvent(distances, svDaughters_svIdx, svDaughters_pt, svDaughters_eta, GenPart_genPartIdxMother_, oneDaughter, svDaughters_genPartIdx, nGenPart_, GenPart_pdgId_):
+def matchingEvent(distances, svDaughters_svIdx, svDaughters_pt, svDaughters_eta, GenPart_genPartIdxMother_, oneDaughter, svDaughters_genPartIdx, nGenPart_, GenPart_pdgId_, mesonsDaughters):
     distances_filled = distances.copy()
     matchingKey ={}
     while (np.any(distances_filled < 997)):
@@ -13,12 +13,12 @@ def matchingEvent(distances, svDaughters_svIdx, svDaughters_pt, svDaughters_eta,
         recoTracksMask = (svDaughters_svIdx==recoIdx) & (svDaughters_pt>0.8) & (abs(svDaughters_eta)<2.5)
 
 
-
-        genTracksMask = (GenPart_genPartIdxMother_==GenPart_genPartIdxMother_[oneDaughter[genIdx]])
-        #genTracksMask = (genTracksMask) |  (GenPart_genPartIdxMother_==GenPart_genPartIdxMother_[GenPart_genPartIdxMother_[oneDaughter[genIdx]]]) 
-        #genTracksMask = (genTracksMask) |  (GenPart_genPartIdxMother_==GenPart_genPartIdxMother_[GenPart_genPartIdxMother_[GenPart_genPartIdxMother_[oneDaughter[genIdx]]]]) 
-        genTracksMask = (genTracksMask) | ( (GenPart_genPartIdxMother_==GenPart_genPartIdxMother_[GenPart_genPartIdxMother_[oneDaughter[genIdx]]]) &  (~getPdgMask(GenPart_pdgId_[GenPart_genPartIdxMother_[oneDaughter[genIdx]]])))
-        genTracksMask = (genTracksMask) | ( (GenPart_genPartIdxMother_==GenPart_genPartIdxMother_[GenPart_genPartIdxMother_[GenPart_genPartIdxMother_[oneDaughter[genIdx]]]]) & (~getPdgMask(GenPart_pdgId_[GenPart_genPartIdxMother_[GenPart_genPartIdxMother_[oneDaughter[genIdx]]]])))
+        genTracksMask =  np.in1d(np.arange(nGenPart_), mesonsDaughters[genIdx])
+        #genTracksMask = (GenPart_genPartIdxMother_==GenPart_genPartIdxMother_[oneDaughter[genIdx]])
+        ##genTracksMask = (genTracksMask) |  (GenPart_genPartIdxMother_==GenPart_genPartIdxMother_[GenPart_genPartIdxMother_[oneDaughter[genIdx]]]) 
+        ##genTracksMask = (genTracksMask) |  (GenPart_genPartIdxMother_==GenPart_genPartIdxMother_[GenPart_genPartIdxMother_[GenPart_genPartIdxMother_[oneDaughter[genIdx]]]]) 
+        #genTracksMask = (genTracksMask) | ( (GenPart_genPartIdxMother_==GenPart_genPartIdxMother_[GenPart_genPartIdxMother_[oneDaughter[genIdx]]]) &  (~getPdgMask(GenPart_pdgId_[GenPart_genPartIdxMother_[oneDaughter[genIdx]]])))
+        #genTracksMask = (genTracksMask) | ( (GenPart_genPartIdxMother_==GenPart_genPartIdxMother_[GenPart_genPartIdxMother_[GenPart_genPartIdxMother_[oneDaughter[genIdx]]]]) & (~getPdgMask(GenPart_pdgId_[GenPart_genPartIdxMother_[GenPart_genPartIdxMother_[oneDaughter[genIdx]]]])))
 
         commonTracks = np.sum(np.in1d(svDaughters_genPartIdx[recoTracksMask], np.arange(nGenPart_)[genTracksMask]))
         if commonTracks>=1:

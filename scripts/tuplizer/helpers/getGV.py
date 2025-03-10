@@ -64,6 +64,7 @@ def getMesons(params, GenPart_pdgId_, GenPart_eta_, GenPart_pt_, nGenPart_, GenP
 
 
 def getMesons_old(params, GenPart_pdgId_, GenPart_eta_, GenPart_pt_, nGenPart_, GenPart_status_, GenPart_charge, GenPart_genPartIdxMother_):
+    assert False
     """
     Identifies mesons from generated particle data based on PDG ID, kinematic constraints, and stability criteria.
 

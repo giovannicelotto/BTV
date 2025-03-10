@@ -4,7 +4,7 @@ import numpy as np
 import glob
 import os
 # %%
-fileName = "/work/gcelotto/BTV/scripts/tuplizer/TTToH_100.root"
+fileName = "/work/gcelotto/BTV/scripts/tuplizer/TTToH_selPart_100.root"
 file = uproot.open(fileName)
 tree = file['tree']
 branches = tree.arrays()
