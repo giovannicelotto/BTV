@@ -3,6 +3,5 @@
 *.pdf
 *.root
 *.pyc
-CMSSW_12_4_8
-CMSSW_10_6_20
+CMSSW_12_4_8/
 genInclusiveSV
