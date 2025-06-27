@@ -2,6 +2,7 @@ import numpy as np
 import uproot
 import glob
 import sys
+import yaml
 #from efficiency_differential import map_to_groups
 #from efficiency_differential import efficiencyVsVariable, plotPtEtaMatchedVsNonMatched
 import os
@@ -266,7 +267,9 @@ def cumulativeDistance(distance, pdgClass, bins, labels, outFile):
 
 
 def main(nFiles):
-    secondMatching = getSecondMatching()
+    with open("/work/gcelotto/BTV/scripts/tuplizer/config.yml", "r") as file:
+        config = yaml.safe_load(file)
+    secondMatching = config['secondMatching']
     if secondMatching:
         rootDir="/pnfs/psi.ch/cms/trivcat/store/user/gcelotto/btv_ntuples/TTToHadronic2024Jul23Tuple/secondMatching/pt0p8" # change here
     else:

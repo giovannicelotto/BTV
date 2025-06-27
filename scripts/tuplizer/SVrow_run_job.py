@@ -4,8 +4,10 @@ import random
 import subprocess
 import time
 from ntupleLinker import getSecondMatching
-
-secondMatching = getSecondMatching()
+import yaml
+with open("/work/gcelotto/BTV/scripts/tuplizer/config.yml", "r") as file:
+    config = yaml.safe_load(file)
+secondMatching = config['secondMatching']
 
 def main(nFiles):
     # Define name of the process, folder for the files and xsections

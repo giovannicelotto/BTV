@@ -1,6 +1,9 @@
 import numpy as np
 from helpers.utilsForScript import getPdgMask
-secondMatching = False
+import yaml
+with open("/work/gcelotto/BTV/scripts/tuplizer/config.yml", "r") as file:
+    config = yaml.safe_load(file)
+secondMatching = config['secondMatching']
 def matchingEvent(distances, svDaughters_svIdx, svDaughters_pt, svDaughters_eta, GenPart_genPartIdxMother_, oneDaughter, svDaughters_genPartIdx, nGenPart_, GenPart_pdgId_, mesonsDaughters):
     distances_filled = distances.copy()
     matchingKey ={}
