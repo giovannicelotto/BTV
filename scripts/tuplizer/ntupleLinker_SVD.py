@@ -9,11 +9,11 @@ from helpers.matchingEvent import matchingEvent
 from helpers.getParams import getParams
 import argparse
 import sys
+import yaml
 
-def getSecondMatching():
-    secondMatching = False
-    return secondMatching
-secondMatching = getSecondMatching()
+with open("/work/gcelotto/BTV/scripts/tuplizer/config.yml", "r") as file:
+    config = yaml.safe_load(file)
+secondMatching = config['secondMatching']
 
 
 def main(fileName, fileNumber, prova, maxEntries):
