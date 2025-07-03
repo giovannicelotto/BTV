@@ -107,7 +107,9 @@ VertexTableProducer::VertexTableProducer(const edm::ParameterSet& params):
   produces<nanoaod::FlatTable>("svs");
   produces<nanoaod::FlatTable>("svDaughters");
   produces<edm::PtrVector<reco::Candidate>>("selCandSv");
-  produces<pat::CompositeCandidateCollection>("selCandSvDaughters");
+  //produces<pat::CompositeCandidateCollection>("selCandSvDaughters");
+  produces<std::vector<edm::Ptr<reco::Candidate>>>("selCandSvDaughters");
+
 }
 
 VertexTableProducer::~VertexTableProducer() {
@@ -159,7 +161,8 @@ void VertexTableProducer::produce(edm::Event& iEvent, const edm::EventSetup& iSe
   edm::Handle<edm::View<reco::VertexCompositePtrCandidate>> svsIn;
   iEvent.getByToken(svs_, svsIn);
   auto selCandSv = std::make_unique<PtrVector<reco::Candidate>>();
-  auto selCandSvDaughters = std::make_unique<pat::CompositeCandidateCollection>();
+  auto selCandSvDaughters = std::make_unique<std::vector<edm::Ptr<reco::Candidate>>>();
+
   std::vector<float> dlen, dlenSig, pAngle, dxy, dxySig;
   std::vector<int> charge;
   std::vector<float> daughters_idx;
@@ -191,15 +194,9 @@ void VertexTableProducer::produce(edm::Event& iEvent, const edm::EventSetup& iSe
 
         int sum_charge = 0;
         for (unsigned int id = 0; id < sv.numberOfDaughters(); ++id) {
-          const reco::Candidate* daughter = sv.daughter(id);
-          pat::CompositeCandidate pcand;
-          pcand.setP4(daughter->p4());
-          pcand.setCharge(daughter->charge());
-          pcand.setVertex(daughter->vertex());
-          pcand.setPdgId(daughter->pdgId());
-          //edm::Ptr<reco::Candidate> daughterPtr(svsIn, i, id);
-          selCandSvDaughters->push_back(pcand);
-          sum_charge += daughter->charge();
+          edm::Ptr<reco::Candidate> daughterPtr = sv.daughterPtr(id);
+          selCandSvDaughters->push_back(daughterPtr);
+          sum_charge += daughterPtr->charge();
         }
         charge.push_back(sum_charge);
 
